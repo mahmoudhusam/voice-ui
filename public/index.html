@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoiceScribe — Speech to Text</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="container">
+      <h1 class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+        VoiceScribe
+      </h1>
+      <p class="subtitle">Convert speech to text in seconds</p>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Upload Section -->
+    <section class="upload-section" id="uploadSection">
+      <div class="drop-zone" id="dropZone">
+        <svg class="drop-zone-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p class="drop-zone-text">Drag &amp; drop your audio or video files here</p>
+        <p class="drop-zone-hint">or <span class="drop-zone-browse">click to browse</span></p>
+        <input type="file" id="fileInput" multiple accept=".mp4,.mkv,.avi,.mov,.webm,.mp3,.wav,.m4a,.ogg,.flac" hidden>
+      </div>
+
+      <div class="file-list" id="fileList"></div>
+    </section>
+
+    <!-- Options Section -->
+    <section class="options-section" id="optionsSection">
+      <div class="option-group">
+        <label for="languageSelect" class="option-label">Language</label>
+        <select id="languageSelect" class="option-select">
+          <optgroup label="Common">
+            <option value="auto" selected>Auto Detect</option>
+            <option value="ar">Arabic (ar)</option>
+            <option value="en">English (en)</option>
+            <option value="fr">French (fr)</option>
+            <option value="de">German (de)</option>
+            <option value="es">Spanish (es)</option>
+            <option value="tr">Turkish (tr)</option>
+          </optgroup>
+          <optgroup label="All Languages">
+            <option value="af">Afrikaans (af)</option>
+            <option value="am">Amharic (am)</option>
+            <option value="hy">Armenian (hy)</option>
+            <option value="as">Assamese (as)</option>
+            <option value="az">Azerbaijani (az)</option>
+            <option value="ba">Bashkir (ba)</option>
+            <option value="eu">Basque (eu)</option>
+            <option value="be">Belarusian (be)</option>
+            <option value="bn">Bengali (bn)</option>
+            <option value="bs">Bosnian (bs)</option>
+            <option value="br">Breton (br)</option>
+            <option value="bg">Bulgarian (bg)</option>
+            <option value="my">Burmese (my)</option>
+            <option value="ca">Catalan (ca)</option>
+            <option value="zh">Chinese (zh)</option>
+            <option value="hr">Croatian (hr)</option>
+            <option value="cs">Czech (cs)</option>
+            <option value="da">Danish (da)</option>
+            <option value="nl">Dutch (nl)</option>
+            <option value="et">Estonian (et)</option>
+            <option value="fo">Faroese (fo)</option>
+            <option value="fi">Finnish (fi)</option>
+            <option value="gl">Galician (gl)</option>
+            <option value="ka">Georgian (ka)</option>
+            <option value="el">Greek (el)</option>
+            <option value="gu">Gujarati (gu)</option>
+            <option value="ht">Haitian Creole (ht)</option>
+            <option value="ha">Hausa (ha)</option>
+            <option value="haw">Hawaiian (haw)</option>
+            <option value="he">Hebrew (he)</option>
+            <option value="hi">Hindi (hi)</option>
+            <option value="hu">Hungarian (hu)</option>
+            <option value="is">Icelandic (is)</option>
+            <option value="id">Indonesian (id)</option>
+            <option value="it">Italian (it)</option>
+            <option value="ja">Japanese (ja)</option>
+            <option value="jw">Javanese (jw)</option>
+            <option value="kn">Kannada (kn)</option>
+            <option value="kk">Kazakh (kk)</option>
+            <option value="km">Khmer (km)</option>
+            <option value="ko">Korean (ko)</option>
+            <option value="la">Latin (la)</option>
+            <option value="lv">Latvian (lv)</option>
+            <option value="ln">Lingala (ln)</option>
+            <option value="lt">Lithuanian (lt)</option>
+            <option value="lb">Luxembourgish (lb)</option>
+            <option value="mk">Macedonian (mk)</option>
+            <option value="mg">Malagasy (mg)</option>
+            <option value="ms">Malay (ms)</option>
+            <option value="ml">Malayalam (ml)</option>
+            <option value="mt">Maltese (mt)</option>
+            <option value="mi">Maori (mi)</option>
+            <option value="mr">Marathi (mr)</option>
+            <option value="mn">Mongolian (mn)</option>
+            <option value="ne">Nepali (ne)</option>
+            <option value="nn">Norwegian Nynorsk (nn)</option>
+            <option value="no">Norwegian (no)</option>
+            <option value="oc">Occitan (oc)</option>
+            <option value="ps">Pashto (ps)</option>
+            <option value="fa">Persian (fa)</option>
+            <option value="pl">Polish (pl)</option>
+            <option value="pt">Portuguese (pt)</option>
+            <option value="pa">Punjabi (pa)</option>
+            <option value="ro">Romanian (ro)</option>
+            <option value="ru">Russian (ru)</option>
+            <option value="sa">Sanskrit (sa)</option>
+            <option value="sr">Serbian (sr)</option>
+            <option value="sn">Shona (sn)</option>
+            <option value="sd">Sindhi (sd)</option>
+            <option value="si">Sinhala (si)</option>
+            <option value="sk">Slovak (sk)</option>
+            <option value="sl">Slovenian (sl)</option>
+            <option value="so">Somali (so)</option>
+            <option value="sq">Albanian (sq)</option>
+            <option value="su">Sundanese (su)</option>
+            <option value="sw">Swahili (sw)</option>
+            <option value="sv">Swedish (sv)</option>
+            <option value="tg">Tajik (tg)</option>
+            <option value="ta">Tamil (ta)</option>
+            <option value="tt">Tatar (tt)</option>
+            <option value="te">Telugu (te)</option>
+            <option value="th">Thai (th)</option>
+            <option value="bo">Tibetan (bo)</option>
+            <option value="tk">Turkmen (tk)</option>
+            <option value="uk">Ukrainian (uk)</option>
+            <option value="ur">Urdu (ur)</option>
+            <option value="uz">Uzbek (uz)</option>
+            <option value="vi">Vietnamese (vi)</option>
+            <option value="cy">Welsh (cy)</option>
+            <option value="yi">Yiddish (yi)</option>
+            <option value="yo">Yoruba (yo)</option>
+            <option value="zu">Zulu (zu)</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <div class="option-group">
+        <span class="option-label">Output Formats</span>
+        <div class="format-checkboxes">
+          <label class="format-check">
+            <input type="checkbox" name="format" value="txt" checked>
+            <span class="checkmark"></span>
+            Text (.txt)
+          </label>
+          <label class="format-check">
+            <input type="checkbox" name="format" value="srt" checked>
+            <span class="checkmark"></span>
+            Subtitles (.srt)
+          </label>
+          <label class="format-check">
+            <input type="checkbox" name="format" value="vtt">
+            <span class="checkmark"></span>
+            WebVTT (.vtt)
+          </label>
+          <label class="format-check">
+            <input type="checkbox" name="format" value="json">
+            <span class="checkmark"></span>
+            JSON (.json)
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Transcribe Button -->
+    <div class="action-bar">
+      <button id="transcribeBtn" class="btn-primary" disabled>Start Transcription</button>
+    </div>
+
+    <!-- Jobs / Progress Section -->
+    <section class="jobs-section" id="jobsSection"></section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Powered by <a href="https://github.com/ggerganov/whisper.cpp" target="_blank" rel="noopener">Whisper</a></p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
