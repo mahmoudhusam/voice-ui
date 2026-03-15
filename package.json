@@ -1,0 +1,16 @@
+{
+  "name": "voice-ui",
+  "version": "1.0.0",
+  "description": "Web UI wrapper for whisper.cpp speech-to-text",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^10.0.0",
+    "ws": "^8.18.0"
+  }
+}
