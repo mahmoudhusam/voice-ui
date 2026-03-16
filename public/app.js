@@ -308,6 +308,10 @@
           createJobCard(job.id, job.originalName);
           activeJobs[job.id] = { originalName: job.originalName };
         });
+        var firstCard = document.querySelector('.job-card');
+        if (firstCard) {
+          firstCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       })
       .catch(function (err) {
         showError('Error: ' + err.message);
@@ -322,11 +326,14 @@
       transcribeBtn.disabled = true;
       transcribeBtn.classList.add('processing');
       transcribeBtn.innerHTML = '<span class="spinner"></span>Processing...';
+      fileList.style.display = 'none';
+      fileListHeader.style.display = 'none';
     } else {
       uploadSection.classList.remove('disabled');
       optionsSection.classList.remove('disabled');
       transcribeBtn.classList.remove('processing');
       transcribeBtn.innerHTML = 'Start Transcription';
+      fileList.style.display = '';
       selectedFiles = [];
       renderFileList();
       updateTranscribeBtn();
