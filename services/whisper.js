@@ -101,9 +101,13 @@ function runWhisper(wavPath, job, progressCallback) {
       '-m', config.modelPath,
       '-f', wavPath,
       '--language', job.language,
-      '--no-gpu',
-      '-pp',
     ];
+
+    if (!job.useGpu) {
+      args.push('--no-gpu');
+    }
+
+    args.push('-pp');
 
     // Add output format flags
     const formatFlags = { txt: '-otxt', srt: '-osrt', vtt: '-ovtt', json: '-oj' };

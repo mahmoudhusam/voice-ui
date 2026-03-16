@@ -12,6 +12,7 @@ const config = {
   uploadDir: path.resolve(__dirname, 'uploads'),
   outputDir: path.resolve(__dirname, 'outputs'),
   port: 3000,
+  useGpu: false,
 };
 
 // Auto-create directories if they don't exist

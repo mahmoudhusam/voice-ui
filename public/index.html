@@ -4,9 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VoiceScribe — Speech to Text</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z'/%3E%3Cpath d='M19 10v2a7 7 0 0 1-14 0v-2'/%3E%3Cline x1='12' y1='19' x2='12' y2='23'/%3E%3Cline x1='8' y1='23' x2='16' y2='23'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+  <div class="connection-banner" id="connectionBanner">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Connection lost. Reconnecting...
+  </div>
 
   <header class="header">
     <div class="container">
@@ -38,6 +44,10 @@
         <input type="file" id="fileInput" multiple accept=".mp4,.mkv,.avi,.mov,.webm,.mp3,.wav,.m4a,.ogg,.flac" hidden>
       </div>
 
+      <div class="file-list-header" id="fileListHeader" style="display:none;">
+        <span class="file-list-count" id="fileListCount"></span>
+        <button class="btn-clear-all" id="clearAllBtn">Clear All</button>
+      </div>
       <div class="file-list" id="fileList"></div>
     </section>
 
@@ -155,32 +165,53 @@
       <div class="option-group">
         <span class="option-label">Output Formats</span>
         <div class="format-checkboxes">
-          <label class="format-check">
+          <label class="format-check" title="Plain text transcription">
             <input type="checkbox" name="format" value="txt" checked>
             <span class="checkmark"></span>
             Text (.txt)
+            <span class="format-hint">Plain text transcription</span>
           </label>
-          <label class="format-check">
+          <label class="format-check" title="Subtitle file for video players">
             <input type="checkbox" name="format" value="srt" checked>
             <span class="checkmark"></span>
             Subtitles (.srt)
+            <span class="format-hint">Subtitle file for video players</span>
           </label>
-          <label class="format-check">
+          <label class="format-check" title="Web subtitle format">
             <input type="checkbox" name="format" value="vtt">
             <span class="checkmark"></span>
             WebVTT (.vtt)
+            <span class="format-hint">Web subtitle format</span>
           </label>
-          <label class="format-check">
+          <label class="format-check" title="Structured data with timestamps">
             <input type="checkbox" name="format" value="json">
             <span class="checkmark"></span>
             JSON (.json)
+            <span class="format-hint">Structured data with timestamps</span>
           </label>
         </div>
+      </div>
+
+      <div class="option-group">
+        <label for="outputBaseName" class="option-label">Output Filename (optional)</label>
+        <input type="text" id="outputBaseName" class="option-input" placeholder="Leave empty to use original filename">
+      </div>
+
+      <div class="option-group">
+        <label class="toggle-label">
+          <span class="toggle-text">
+            <span class="option-label" style="margin-bottom:0">GPU Acceleration</span>
+            <span class="toggle-sublabel">Enable if you have an NVIDIA GPU (faster processing)</span>
+          </span>
+          <input type="checkbox" id="useGpuCheckbox">
+          <span class="toggle-switch"></span>
+        </label>
       </div>
     </section>
 
     <!-- Transcribe Button -->
     <div class="action-bar">
+      <div class="inline-error" id="inlineError"></div>
       <button id="transcribeBtn" class="btn-primary" disabled>Start Transcription</button>
     </div>
 

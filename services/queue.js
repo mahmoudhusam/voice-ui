@@ -32,6 +32,7 @@ async function processNext() {
   processing = true;
   const job = queue.shift();
   job.status = 'processing';
+  job.startedAt = Date.now();
 
   console.log(`[Queue] Processing job ${job.id} (${job.originalName})`);
 
@@ -51,14 +52,17 @@ async function processNext() {
     });
 
     job.status = 'completed';
+    job.completedAt = Date.now();
+    job.duration = job.completedAt - job.startedAt;
     job.outputs = outputs;
 
-    console.log(`[Queue] Job ${job.id} completed (${job.originalName})`);
+    console.log(`[Queue] Job ${job.id} completed (${job.originalName}) in ${job.duration}ms`);
 
     broadcastToClient(job.clientId, {
       type: 'job_completed',
       jobId: job.id,
       originalName: job.originalName,
+      duration: job.duration,
       outputs: outputs.map((o) => ({
         filename: o.filename,
         format: o.format,
@@ -67,6 +71,8 @@ async function processNext() {
     });
   } catch (err) {
     job.status = 'failed';
+    job.completedAt = Date.now();
+    job.duration = job.completedAt - job.startedAt;
     job.error = err.message;
 
     console.error(`[Queue] Job ${job.id} failed (${job.originalName}):`, err.message);

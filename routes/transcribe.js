@@ -78,7 +78,8 @@ router.post('/transcribe', upload.array('files', 10), (req, res) => {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    const { language, clientId } = req.body;
+    const { language, clientId, outputBaseName } = req.body;
+    const useGpu = req.body.useGpu === 'true' || req.body.useGpu === true;
     let { outputFormats } = req.body;
 
     if (!language) {
@@ -118,6 +119,8 @@ router.post('/transcribe', upload.array('files', 10), (req, res) => {
         language: language.toLowerCase(),
         outputFormats,
         clientId,
+        useGpu,
+        outputBaseName: outputBaseName || '',
         status: 'queued',
       };
 
@@ -169,7 +172,13 @@ router.get('/jobs/:jobId/download/:filename', (req, res) => {
     return res.status(404).json({ error: 'File not found' });
   }
 
-  res.download(output.path, `${path.parse(job.originalName).name}.${output.format}`);
+  const baseName = job.outputBaseName || path.parse(job.originalName).name;
+  const ts = job.completedAt ? new Date(job.completedAt) : new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const timestamp = `${ts.getFullYear()}-${pad(ts.getMonth() + 1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}-${pad(ts.getSeconds())}`;
+  const downloadName = `${baseName}_${timestamp}.${output.format}`;
+
+  res.download(output.path, downloadName);
 });
 
 export default router;

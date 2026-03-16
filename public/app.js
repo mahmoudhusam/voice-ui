@@ -1,23 +1,34 @@
 (function () {
   'use strict';
 
+  var MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB
+
   // --- State ---
   var selectedFiles = [];
   var clientId = null;
   var ws = null;
   var activeJobs = {};
   var totalJobs = 0;
-  var completedOrFailedCount = 0;
+  var completedCount = 0;
+  var failedCount = 0;
+  var wsConnected = false;
 
   // --- DOM refs ---
   var dropZone = document.getElementById('dropZone');
   var fileInput = document.getElementById('fileInput');
   var fileList = document.getElementById('fileList');
+  var fileListHeader = document.getElementById('fileListHeader');
+  var fileListCount = document.getElementById('fileListCount');
+  var clearAllBtn = document.getElementById('clearAllBtn');
   var transcribeBtn = document.getElementById('transcribeBtn');
   var jobsSection = document.getElementById('jobsSection');
   var uploadSection = document.getElementById('uploadSection');
   var optionsSection = document.getElementById('optionsSection');
   var languageSelect = document.getElementById('languageSelect');
+  var outputBaseName = document.getElementById('outputBaseName');
+  var useGpuCheckbox = document.getElementById('useGpuCheckbox');
+  var inlineError = document.getElementById('inlineError');
+  var connectionBanner = document.getElementById('connectionBanner');
 
   // --- WebSocket ---
   function connectWebSocket() {
@@ -26,6 +37,8 @@
 
     ws.addEventListener('open', function () {
       console.log('[WS] Connected');
+      wsConnected = true;
+      connectionBanner.classList.remove('visible');
     });
 
     ws.addEventListener('message', function (event) {
@@ -40,7 +53,9 @@
 
     ws.addEventListener('close', function () {
       console.log('[WS] Disconnected, reconnecting in 3s...');
+      wsConnected = false;
       clientId = null;
+      connectionBanner.classList.add('visible');
       setTimeout(connectWebSocket, 3000);
     });
 
@@ -81,39 +96,58 @@
         break;
 
       case 'job_completed':
+        completedCount++;
         updateJobCard(msg.jobId, {
           status: 'completed',
           statusText: 'Completed',
           percent: 100,
           outputs: msg.outputs,
+          duration: msg.duration,
         });
-        completedOrFailedCount++;
         checkAllDone();
         break;
 
       case 'job_failed':
+        failedCount++;
         updateJobCard(msg.jobId, {
           status: 'failed',
           statusText: 'Failed',
           percent: 100,
           error: msg.error,
         });
-        completedOrFailedCount++;
         checkAllDone();
         break;
     }
   }
 
+  // --- Inline error ---
+  function showError(message) {
+    inlineError.textContent = message;
+  }
+
+  function clearError() {
+    inlineError.textContent = '';
+  }
+
   // --- File handling ---
   function addFiles(newFiles) {
+    var rejected = [];
     for (var i = 0; i < newFiles.length; i++) {
-      // Avoid duplicates by name+size
+      if (newFiles[i].size > MAX_FILE_SIZE) {
+        rejected.push(newFiles[i].name);
+        continue;
+      }
       var dup = selectedFiles.some(function (f) {
         return f.name === newFiles[i].name && f.size === newFiles[i].size;
       });
       if (!dup) {
         selectedFiles.push(newFiles[i]);
       }
+    }
+    if (rejected.length > 0) {
+      showError('File too large (max 500 MB): ' + rejected.join(', '));
+    } else {
+      clearError();
     }
     renderFileList();
     updateTranscribeBtn();
@@ -123,10 +157,25 @@
     selectedFiles.splice(index, 1);
     renderFileList();
     updateTranscribeBtn();
+    clearError();
+  }
+
+  function clearAllFiles() {
+    selectedFiles = [];
+    renderFileList();
+    updateTranscribeBtn();
+    clearError();
   }
 
   function renderFileList() {
     fileList.innerHTML = '';
+    if (selectedFiles.length === 0) {
+      fileListHeader.style.display = 'none';
+      return;
+    }
+    fileListHeader.style.display = 'flex';
+    fileListCount.textContent = selectedFiles.length + ' file' + (selectedFiles.length !== 1 ? 's' : '') + ' selected';
+
     selectedFiles.forEach(function (file, i) {
       var item = document.createElement('div');
       item.className = 'file-item';
@@ -182,22 +231,32 @@
     }
   });
 
+  // Clear all
+  clearAllBtn.addEventListener('click', function () {
+    clearAllFiles();
+  });
+
   // --- Transcribe ---
   function updateTranscribeBtn() {
     transcribeBtn.disabled = selectedFiles.length === 0;
   }
 
   transcribeBtn.addEventListener('click', function () {
-    if (selectedFiles.length === 0) return;
+    clearError();
+
+    if (selectedFiles.length === 0) {
+      showError('Please add at least one file to transcribe.');
+      return;
+    }
 
     var formats = getSelectedFormats();
     if (formats.length === 0) {
-      alert('Please select at least one output format.');
+      showError('Please select at least one output format.');
       return;
     }
 
     if (!clientId) {
-      alert('Not connected to the server. Please wait a moment and try again.');
+      showError('Not connected to the server. Please wait a moment and try again.');
       return;
     }
 
@@ -221,13 +280,20 @@
     formData.append('language', languageSelect.value);
     formData.append('outputFormats', JSON.stringify(formats));
     formData.append('clientId', clientId);
+    formData.append('useGpu', useGpuCheckbox.checked ? 'true' : 'false');
+
+    var nameVal = outputBaseName.value.trim();
+    if (nameVal) {
+      formData.append('outputBaseName', nameVal);
+    }
 
     // UI: disable upload, show processing state
     setProcessingState(true);
     jobsSection.innerHTML = '';
     activeJobs = {};
     totalJobs = selectedFiles.length;
-    completedOrFailedCount = 0;
+    completedCount = 0;
+    failedCount = 0;
 
     fetch('/api/transcribe', {
       method: 'POST',
@@ -244,7 +310,7 @@
         });
       })
       .catch(function (err) {
-        alert('Error: ' + err.message);
+        showError('Error: ' + err.message);
         setProcessingState(false);
       });
   }
@@ -261,7 +327,6 @@
       optionsSection.classList.remove('disabled');
       transcribeBtn.classList.remove('processing');
       transcribeBtn.innerHTML = 'Start Transcription';
-      // Keep disabled if no files
       selectedFiles = [];
       renderFileList();
       updateTranscribeBtn();
@@ -280,7 +345,7 @@
       '</div>' +
       '<div class="progress-area">' +
       '<div class="progress-bar-track">' +
-      '<div class="progress-bar-fill" id="bar-' + jobId + '"></div>' +
+      '<div class="progress-bar-fill queued" id="bar-' + jobId + '"></div>' +
       '</div>' +
       '<div class="progress-text" id="ptext-' + jobId + '">Waiting...</div>' +
       '</div>' +
@@ -308,9 +373,12 @@
     badge.textContent = badgeLabels[data.status] || data.status;
 
     // Update progress bar
-    if (data.percent !== undefined) {
-      bar.style.width = data.percent + '%';
+    if (data.status === 'queued') {
+      bar.className = 'progress-bar-fill queued';
+      bar.style.width = '';
+    } else if (data.percent !== undefined) {
       bar.className = 'progress-bar-fill';
+      bar.style.width = data.percent + '%';
       if (data.status === 'converting') bar.classList.add('converting');
       else if (data.status === 'completed') bar.classList.add('completed');
       else if (data.status === 'failed') bar.classList.add('failed');
@@ -321,7 +389,7 @@
       ptext.textContent = data.statusText;
     }
 
-    // Show downloads
+    // Show downloads + duration
     if (data.status === 'completed' && data.outputs) {
       var html = '<div class="job-downloads">';
       data.outputs.forEach(function (o) {
@@ -335,21 +403,38 @@
           '</a>';
       });
       html += '</div>';
+      if (data.duration) {
+        html += '<div class="job-duration">' + formatDuration(data.duration) + '</div>';
+      }
       downloads.innerHTML = html;
     }
 
     // Show error
     if (data.status === 'failed' && data.error) {
-      downloads.innerHTML = '<div class="job-error">' + escapeHtml(data.error) + '</div>';
+      var errorMsg = friendlyError(data.error);
+      downloads.innerHTML = '<div class="job-error">' + escapeHtml(errorMsg) + '</div>';
     }
   }
 
   function checkAllDone() {
-    if (completedOrFailedCount >= totalJobs) {
+    if (completedCount + failedCount >= totalJobs) {
       transcribeBtn.classList.remove('processing');
       transcribeBtn.innerHTML = 'Start Transcription';
 
-      // Show reset button
+      // Summary
+      var summaryHtml = '';
+      if (failedCount === 0) {
+        summaryHtml = completedCount + ' file' + (completedCount !== 1 ? 's' : '') + ' transcribed successfully';
+      } else {
+        summaryHtml = completedCount + ' completed, ' + failedCount + ' failed';
+      }
+
+      var summaryDiv = document.createElement('div');
+      summaryDiv.className = 'job-summary';
+      summaryDiv.textContent = summaryHtml;
+      jobsSection.appendChild(summaryDiv);
+
+      // Reset button
       var resetDiv = document.createElement('div');
       resetDiv.style.textAlign = 'center';
       resetDiv.innerHTML = '<button class="btn-reset" id="resetBtn">Transcribe more files</button>';
@@ -358,6 +443,7 @@
       document.getElementById('resetBtn').addEventListener('click', function () {
         setProcessingState(false);
         jobsSection.innerHTML = '';
+        clearError();
       });
     }
   }
@@ -369,6 +455,29 @@
     var i = Math.floor(Math.log(bytes) / Math.log(1024));
     if (i >= units.length) i = units.length - 1;
     return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+  }
+
+  function formatDuration(ms) {
+    var totalSec = Math.round(ms / 1000);
+    if (totalSec < 60) {
+      return 'Completed in ' + totalSec + ' sec';
+    }
+    var min = Math.floor(totalSec / 60);
+    var sec = totalSec % 60;
+    return 'Completed in ' + min + ' min ' + sec + ' sec';
+  }
+
+  function friendlyError(msg) {
+    if (msg.indexOf('Failed to start whisper-cli') !== -1 || msg.indexOf('ENOENT') !== -1 && msg.indexOf('whisper') !== -1) {
+      return 'Transcription engine not found. Please check that whisper-cli is installed correctly.';
+    }
+    if (msg.indexOf('Failed to start ffmpeg') !== -1 || msg.indexOf('ENOENT') !== -1 && msg.indexOf('ffmpeg') !== -1) {
+      return 'Audio converter (ffmpeg) not found. Please check that ffmpeg is installed.';
+    }
+    if (msg.indexOf('model') !== -1 && msg.indexOf('not found') !== -1 || msg.indexOf('no such file') !== -1 && msg.indexOf('model') !== -1) {
+      return 'Model file not found. Please check your model configuration.';
+    }
+    return msg;
   }
 
   function escapeHtml(str) {
