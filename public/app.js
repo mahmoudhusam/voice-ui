@@ -26,7 +26,6 @@
   var optionsSection = document.getElementById('optionsSection');
   var languageSelect = document.getElementById('languageSelect');
   var outputBaseName = document.getElementById('outputBaseName');
-  var useGpuCheckbox = document.getElementById('useGpuCheckbox');
   var inlineError = document.getElementById('inlineError');
   var connectionBanner = document.getElementById('connectionBanner');
 
@@ -280,7 +279,6 @@
     formData.append('language', languageSelect.value);
     formData.append('outputFormats', JSON.stringify(formats));
     formData.append('clientId', clientId);
-    formData.append('useGpu', useGpuCheckbox.checked ? 'true' : 'false');
 
     var nameVal = outputBaseName.value.trim();
     if (nameVal) {
@@ -475,8 +473,8 @@
   }
 
   function friendlyError(msg) {
-    if (msg.indexOf('Failed to start whisper-cli') !== -1 || msg.indexOf('ENOENT') !== -1 && msg.indexOf('whisper') !== -1) {
-      return 'Transcription engine not found. Please check that whisper-cli is installed correctly.';
+    if (msg.indexOf('whisper-server') !== -1 || msg.indexOf('Whisper server') !== -1) {
+      return 'Transcription server is not available. Please restart the application.';
     }
     if (msg.indexOf('Failed to start ffmpeg') !== -1 || msg.indexOf('ENOENT') !== -1 && msg.indexOf('ffmpeg') !== -1) {
       return 'Audio converter (ffmpeg) not found. Please check that ffmpeg is installed.';

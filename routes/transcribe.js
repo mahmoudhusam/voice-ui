@@ -79,7 +79,6 @@ router.post('/transcribe', upload.array('files', 10), (req, res) => {
     }
 
     const { language, clientId, outputBaseName } = req.body;
-    const useGpu = req.body.useGpu === 'true' || req.body.useGpu === true;
     let { outputFormats } = req.body;
 
     if (!language) {
@@ -119,7 +118,6 @@ router.post('/transcribe', upload.array('files', 10), (req, res) => {
         language: language.toLowerCase(),
         outputFormats,
         clientId,
-        useGpu,
         outputBaseName: outputBaseName || '',
         status: 'queued',
       };

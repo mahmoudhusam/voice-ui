@@ -4,6 +4,7 @@ import { WebSocketServer } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import config from './config.js';
 import transcribeRouter from './routes/transcribe.js';
+import { startServer as startWhisperServer, stopServer as stopWhisperServer } from './services/whisper-server-manager.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -40,6 +41,23 @@ export function broadcastToClient(clientId, data) {
   }
 }
 
-server.listen(config.port, () => {
-  console.log(`[Server] Running at http://localhost:${config.port}`);
+// Startup
+try {
+  await startWhisperServer(config);
+  server.listen(config.port, () => {
+    console.log(`[Server] Running at http://localhost:${config.port}`);
+  });
+} catch (err) {
+  console.error('[Server] Failed to start whisper-server:', err.message);
+  process.exit(1);
+}
+
+process.on('SIGINT', async () => {
+  await stopWhisperServer();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await stopWhisperServer();
+  process.exit(0);
 });

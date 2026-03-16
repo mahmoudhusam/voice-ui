@@ -1,7 +1,9 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import http from 'http';
 import config from '../config.js';
+import { isReady } from './whisper-server-manager.js';
 
 const WHISPER_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
@@ -12,7 +14,7 @@ export async function processFile(job, progressCallback) {
     // Step A: Convert to WAV
     await convertToWav(job.filePath, wavPath, job.id, progressCallback);
 
-    // Step B: Run whisper-cli
+    // Step B: Transcribe via whisper-server
     const outputFiles = await runWhisper(wavPath, job, progressCallback);
 
     // Step C: Cleanup temp files
@@ -20,7 +22,6 @@ export async function processFile(job, progressCallback) {
 
     return outputFiles;
   } catch (err) {
-    // Cleanup on error too
     cleanup(job.filePath, wavPath);
     throw err;
   }
@@ -52,7 +53,6 @@ function convertToWav(inputPath, outputPath, jobId, progressCallback) {
       const text = data.toString();
       stderrOutput += text;
 
-      // Parse total duration from ffmpeg output: "Duration: HH:MM:SS.ms"
       if (!totalDuration) {
         const durationMatch = text.match(/Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/);
         if (durationMatch) {
@@ -63,7 +63,6 @@ function convertToWav(inputPath, outputPath, jobId, progressCallback) {
         }
       }
 
-      // Parse progress: "time=HH:MM:SS.ms"
       const timeMatch = text.match(/time=(\d+):(\d+):(\d+)\.(\d+)/);
       if (timeMatch && totalDuration > 0) {
         const hours = parseInt(timeMatch[1]);
@@ -91,110 +90,171 @@ function convertToWav(inputPath, outputPath, jobId, progressCallback) {
   });
 }
 
-function runWhisper(wavPath, job, progressCallback) {
+async function runWhisper(wavPath, job, progressCallback) {
+  console.log(`[Whisper] Sending to whisper-server for job ${job.id}`);
+
+  if (!isReady()) {
+    throw new Error('Whisper server is not running. Please restart the application.');
+  }
+
+  progressCallback({ stage: 'transcribing', percent: 0 });
+
+  // Read WAV file and send to whisper-server for verbose_json
+  const wavBuffer = fs.readFileSync(wavPath);
+  const result = await sendToWhisperServer(wavBuffer, job.language);
+
+
+  console.log(`[Whisper] Transcription complete for job ${job.id}`);
+  progressCallback({ stage: 'transcribing', percent: 100 });
+
+  // Generate output files from verbose_json
+  const outputPrefix = path.join(config.outputDir, job.id);
+  const outputFiles = [];
+  const segments = result.segments || [];
+
+  const formatGenerators = {
+    txt: { ext: '.txt', generate: () => generateTxt(segments) },
+    srt: { ext: '.srt', generate: () => generateSrt(segments) },
+    vtt: { ext: '.vtt', generate: () => generateVtt(segments) },
+    json: { ext: '.json', generate: () => JSON.stringify(result, null, 2) },
+  };
+
+  for (const fmt of job.outputFormats) {
+    const gen = formatGenerators[fmt];
+    if (!gen) continue;
+
+    const filePath = outputPrefix + gen.ext;
+    const content = gen.generate();
+    fs.writeFileSync(filePath, content, 'utf-8');
+
+    outputFiles.push({
+      filename: `${job.id}${gen.ext}`,
+      format: fmt,
+      path: filePath,
+    });
+  }
+
+  if (outputFiles.length === 0) {
+    throw new Error('Whisper completed but no output files could be generated');
+  }
+
+  return outputFiles;
+}
+
+// --- HTTP request to whisper-server (raw http to avoid fetch timeout) ---
+
+function sendToWhisperServer(wavBuffer, language) {
   return new Promise((resolve, reject) => {
-    console.log(`[Whisper] Running whisper-cli for job ${job.id}`);
+    const boundary = '----WhisperBoundary' + Date.now();
+    const CRLF = '\r\n';
 
-    const outputPrefix = path.join(config.outputDir, job.id);
+    // Build multipart body
+    const parts = [];
 
-    const args = [
-      '-m', config.modelPath,
-      '-f', wavPath,
-      '--language', job.language,
-    ];
+    // file field
+    parts.push(`--${boundary}${CRLF}`);
+    parts.push(`Content-Disposition: form-data; name="file"; filename="audio.wav"${CRLF}`);
+    parts.push(`Content-Type: audio/wav${CRLF}${CRLF}`);
+    const fileHeader = Buffer.from(parts.join(''));
+    const fileFooter = Buffer.from(CRLF);
 
-    if (!job.useGpu) {
-      args.push('--no-gpu');
+    // text fields
+    const fields = { response_format: 'verbose_json', language, temperature: '0.0' };
+    const fieldBuffers = [];
+    for (const [key, value] of Object.entries(fields)) {
+      fieldBuffers.push(Buffer.from(
+        `--${boundary}${CRLF}Content-Disposition: form-data; name="${key}"${CRLF}${CRLF}${value}${CRLF}`
+      ));
     }
 
-    args.push('-pp');
+    const closing = Buffer.from(`--${boundary}--${CRLF}`);
+    const body = Buffer.concat([fileHeader, wavBuffer, fileFooter, ...fieldBuffers, closing]);
 
-    // Add output format flags
-    const formatFlags = { txt: '-otxt', srt: '-osrt', vtt: '-ovtt', json: '-oj' };
-    for (const fmt of job.outputFormats) {
-      if (formatFlags[fmt]) {
-        args.push(formatFlags[fmt]);
-      }
-    }
-
-    args.push('-of', outputPrefix);
-
-    let whisperProcess;
-    try {
-      whisperProcess = spawn(config.whisperPath, args);
-    } catch (err) {
-      reject(new Error(`Failed to spawn whisper-cli: ${err.message}. Is whisper-cli at ${config.whisperPath}?`));
-      return;
-    }
-
-    let stderrOutput = '';
-
-    const timeout = setTimeout(() => {
-      console.error(`[Whisper] Job ${job.id} timed out after 30 minutes`);
-      whisperProcess.kill('SIGKILL');
-      reject(new Error('Whisper processing timed out after 30 minutes'));
-    }, WHISPER_TIMEOUT);
-
-    const parseProgress = (text) => {
-      // whisper_full_with_state: progress = XX%
-      const match = text.match(/progress\s*=\s*(\d+)%/);
-      if (match) {
-        const percent = parseInt(match[1]);
-        progressCallback({ stage: 'transcribing', percent });
-      }
+    const options = {
+      hostname: config.whisperServerHost,
+      port: config.whisperServerPort,
+      path: '/inference',
+      method: 'POST',
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': body.length,
+      },
+      timeout: WHISPER_TIMEOUT,
     };
 
-    whisperProcess.stdout.on('data', (data) => {
-      parseProgress(data.toString());
-    });
-
-    whisperProcess.stderr.on('data', (data) => {
-      const text = data.toString();
-      stderrOutput += text;
-      parseProgress(text);
-    });
-
-    whisperProcess.on('error', (err) => {
-      clearTimeout(timeout);
-      reject(new Error(`Failed to start whisper-cli: ${err.message}. Is whisper-cli at ${config.whisperPath}?`));
-    });
-
-    whisperProcess.on('close', (code) => {
-      clearTimeout(timeout);
-
-      if (code !== 0) {
-        reject(new Error(`whisper-cli exited with code ${code}: ${stderrOutput.slice(-500)}`));
-        return;
-      }
-
-      console.log(`[Whisper] Transcription complete for job ${job.id}`);
-      progressCallback({ stage: 'transcribing', percent: 100 });
-
-      // Find output files matching the job ID
-      const outputFiles = [];
-      const formatExtensions = { txt: '.txt', srt: '.srt', vtt: '.vtt', json: '.json' };
-
-      for (const fmt of job.outputFormats) {
-        const ext = formatExtensions[fmt];
-        const filePath = outputPrefix + ext;
-        if (fs.existsSync(filePath)) {
-          outputFiles.push({
-            filename: `${job.id}${ext}`,
-            format: fmt,
-            path: filePath,
-          });
+    const req = http.request(options, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        const responseText = Buffer.concat(chunks).toString('utf-8');
+        if (res.statusCode !== 200) {
+          reject(new Error(`Whisper server returned ${res.statusCode}: ${responseText.slice(0, 500)}`));
+          return;
         }
-      }
-
-      if (outputFiles.length === 0) {
-        reject(new Error('Whisper completed but no output files were found'));
-        return;
-      }
-
-      resolve(outputFiles);
+        try {
+          resolve(JSON.parse(responseText));
+        } catch {
+          reject(new Error(`Whisper server returned invalid JSON: ${responseText.slice(0, 200)}`));
+        }
+      });
     });
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Whisper processing timed out after 30 minutes'));
+    });
+
+    req.on('error', (err) => {
+      reject(new Error(`Failed to connect to whisper-server: ${err.message}`));
+    });
+
+    req.write(body);
+    req.end();
   });
 }
+
+// --- Format generators ---
+
+function generateTxt(segments) {
+  return segments.map((s) => s.text.trim()).join('\n');
+}
+
+function generateSrt(segments) {
+  return segments.map((s, i) => {
+    const start = formatTimestamp(s.t0 != null ? s.t0 / 1000 : s.start, true);
+    const end = formatTimestamp(s.t1 != null ? s.t1 / 1000 : s.end, true);
+    return `${i + 1}\n${start} --> ${end}\n${s.text.trim()}\n`;
+  }).join('\n');
+}
+
+function generateVtt(segments) {
+  const lines = ['WEBVTT', ''];
+  for (const s of segments) {
+    const start = formatTimestamp(s.t0 != null ? s.t0 / 1000 : s.start, false);
+    const end = formatTimestamp(s.t1 != null ? s.t1 / 1000 : s.end, false);
+    lines.push(`${start} --> ${end}`);
+    lines.push(s.text.trim());
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+function formatTimestamp(seconds, srtFormat) {
+  if (seconds == null || isNaN(seconds)) seconds = 0;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.round((seconds % 1) * 1000);
+  const sep = srtFormat ? ',' : '.';
+  return (
+    String(h).padStart(2, '0') + ':' +
+    String(m).padStart(2, '0') + ':' +
+    String(s).padStart(2, '0') + sep +
+    String(ms).padStart(3, '0')
+  );
+}
+
+// --- Cleanup ---
 
 function cleanup(originalFile, wavFile) {
   try {
