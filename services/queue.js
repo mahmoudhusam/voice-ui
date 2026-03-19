@@ -63,6 +63,7 @@ async function processNext() {
       jobId: job.id,
       originalName: job.originalName,
       duration: job.duration,
+      savedToPath: job.outputPath || '',
       outputs: outputs.map((o) => ({
         filename: o.filename,
         format: o.format,

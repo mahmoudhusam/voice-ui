@@ -41,7 +41,9 @@
         </svg>
         <p class="drop-zone-text">Drag &amp; drop your audio or video files here</p>
         <p class="drop-zone-hint">or <span class="drop-zone-browse">click to browse</span></p>
+        <p class="drop-zone-hint">or <span class="drop-zone-browse" id="folderBrowse">select a folder</span></p>
         <input type="file" id="fileInput" multiple accept=".mp4,.mkv,.avi,.mov,.webm,.mp3,.wav,.m4a,.ogg,.flac" hidden>
+        <input type="file" id="folderInput" webkitdirectory directory hidden>
       </div>
 
       <div class="file-list-header" id="fileListHeader" style="display:none;">
@@ -65,6 +67,7 @@
             <option value="en">English (en)</option>
             <option value="fr">French (fr)</option>
             <option value="de">German (de)</option>
+            <option value="he">Hebrew (he)</option>
             <option value="es">Spanish (es)</option>
             <option value="tr">Turkish (tr)</option>
           </optgroup>
@@ -98,7 +101,6 @@
             <option value="ht">Haitian Creole (ht)</option>
             <option value="ha">Hausa (ha)</option>
             <option value="haw">Hawaiian (haw)</option>
-            <option value="he">Hebrew (he)</option>
             <option value="hi">Hindi (hi)</option>
             <option value="hu">Hungarian (hu)</option>
             <option value="is">Icelandic (is)</option>
@@ -166,6 +168,24 @@
       </div>
 
       <div class="option-group">
+        <span class="option-label">Task</span>
+        <div class="task-radio-group">
+          <label class="task-radio">
+            <input type="radio" name="task" value="transcribe" checked>
+            <span class="radio-mark"></span>
+            Transcribe
+            <span class="format-hint">Convert speech to text in the original language</span>
+          </label>
+          <label class="task-radio">
+            <input type="radio" name="task" value="translate">
+            <span class="radio-mark"></span>
+            Translate to English
+            <span class="format-hint">Transcribe and translate the speech to English</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="option-group">
         <span class="option-label">Output Formats</span>
         <div class="format-checkboxes">
           <label class="format-check" title="Plain text transcription">
@@ -192,12 +212,39 @@
             JSON (.json)
             <span class="format-hint">Structured data with timestamps</span>
           </label>
+          <label class="format-check" title="Synced lyrics format">
+            <input type="checkbox" name="format" value="lrc">
+            <span class="checkmark"></span>
+            Lyrics (.lrc)
+            <span class="format-hint">Synced lyrics format</span>
+          </label>
+          <label class="format-check" title="Spreadsheet-compatible format">
+            <input type="checkbox" name="format" value="csv">
+            <span class="checkmark"></span>
+            CSV (.csv)
+            <span class="format-hint">Spreadsheet-compatible format</span>
+          </label>
+          <label class="format-check" title="Detailed JSON with word-level timestamps">
+            <input type="checkbox" name="format" value="json-full">
+            <span class="checkmark"></span>
+            JSON Full (.json)
+            <span class="format-hint">Detailed JSON with word-level timestamps</span>
+          </label>
         </div>
       </div>
 
       <div class="option-group">
         <label for="outputBaseName" class="option-label">Output Filename (optional)</label>
         <input type="text" id="outputBaseName" class="option-input" placeholder="Leave empty to use original filename">
+      </div>
+
+      <div class="option-group">
+        <label for="outputPath" class="option-label">Save to Folder (optional)</label>
+        <input type="text" id="outputPath" class="option-input"
+               placeholder="Leave empty to download from browser (e.g., C:\Users\Name\Desktop)">
+        <span class="format-hint" style="margin-top:4px; display:block;">
+          If set, files will be saved directly to this folder
+        </span>
       </div>
     </section>
 

@@ -101,7 +101,7 @@ async function runWhisper(wavPath, job, progressCallback) {
 
   // Read WAV file and send to whisper-server for verbose_json
   const wavBuffer = fs.readFileSync(wavPath);
-  const result = await sendToWhisperServer(wavBuffer, job.language);
+  const result = await sendToWhisperServer(wavBuffer, job.language, job.task);
 
 
   console.log(`[Whisper] Transcription complete for job ${job.id}`);
@@ -116,22 +116,50 @@ async function runWhisper(wavPath, job, progressCallback) {
     txt: { ext: '.txt', generate: () => generateTxt(segments) },
     srt: { ext: '.srt', generate: () => generateSrt(segments) },
     vtt: { ext: '.vtt', generate: () => generateVtt(segments) },
-    json: { ext: '.json', generate: () => JSON.stringify(result, null, 2) },
+    json: { ext: '.json', fileSuffix: '', generate: () => JSON.stringify(result, null, 2) },
+    lrc: { ext: '.lrc', generate: () => generateLrc(segments) },
+    csv: { ext: '.csv', generate: () => generateCsv(segments) },
+    'json-full': { ext: '.json', fileSuffix: '_full', generate: () => JSON.stringify(result, null, 2) },
   };
 
   for (const fmt of job.outputFormats) {
     const gen = formatGenerators[fmt];
     if (!gen) continue;
 
-    const filePath = outputPrefix + gen.ext;
+    const suffix = gen.fileSuffix || '';
+    const filePath = outputPrefix + suffix + gen.ext;
     const content = gen.generate();
     fs.writeFileSync(filePath, content, 'utf-8');
 
     outputFiles.push({
-      filename: `${job.id}${gen.ext}`,
+      filename: `${job.id}${suffix}${gen.ext}`,
       format: fmt,
       path: filePath,
     });
+  }
+
+  // Copy files to custom output path if specified
+  if (job.outputPath) {
+    try {
+      if (!fs.existsSync(job.outputPath)) {
+        fs.mkdirSync(job.outputPath, { recursive: true });
+      }
+      const baseName = job.outputBaseName || path.parse(job.originalName).name;
+      const ts = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timestamp = `${ts.getFullYear()}-${pad(ts.getMonth() + 1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}-${pad(ts.getSeconds())}`;
+      for (const o of outputFiles) {
+        const extMap = { 'json-full': 'json', lrc: 'lrc', csv: 'csv' };
+        const ext = extMap[o.format] || o.format;
+        const sfx = o.format === 'json-full' ? '_full' : '';
+        const destName = `${baseName}_${timestamp}${sfx}.${ext}`;
+        const destPath = path.join(job.outputPath, destName);
+        fs.copyFileSync(o.path, destPath);
+        o.savedPath = destPath;
+      }
+    } catch (err) {
+      console.error(`[Whisper] Failed to save to output path: ${err.message}`);
+    }
   }
 
   if (outputFiles.length === 0) {
@@ -143,7 +171,7 @@ async function runWhisper(wavPath, job, progressCallback) {
 
 // --- HTTP request to whisper-server (raw http to avoid fetch timeout) ---
 
-function sendToWhisperServer(wavBuffer, language) {
+function sendToWhisperServer(wavBuffer, language, task) {
   return new Promise((resolve, reject) => {
     const boundary = '----WhisperBoundary' + Date.now();
     const CRLF = '\r\n';
@@ -160,6 +188,9 @@ function sendToWhisperServer(wavBuffer, language) {
 
     // text fields
     const fields = { response_format: 'verbose_json', language, temperature: '0.0' };
+    if (task === 'translate') {
+      fields.translate = 'true';
+    }
     const fieldBuffers = [];
     for (const [key, value] of Object.entries(fields)) {
       fieldBuffers.push(Buffer.from(
@@ -235,6 +266,29 @@ function generateVtt(segments) {
     lines.push(`${start} --> ${end}`);
     lines.push(s.text.trim());
     lines.push('');
+  }
+  return lines.join('\n');
+}
+
+function generateLrc(segments) {
+  return segments.map((s) => {
+    const seconds = s.t0 != null ? s.t0 / 1000 : s.start;
+    const sec = seconds == null || isNaN(seconds) ? 0 : seconds;
+    const m = Math.floor(sec / 60);
+    const secs = sec % 60;
+    const mm = String(m).padStart(2, '0');
+    const ssxx = secs.toFixed(2).padStart(5, '0');
+    return `[${mm}:${ssxx}] ${s.text.trim()}`;
+  }).join('\n');
+}
+
+function generateCsv(segments) {
+  const lines = ['start,end,text'];
+  for (const s of segments) {
+    const start = Math.round((s.t0 != null ? s.t0 : (s.start || 0) * 1000));
+    const end = Math.round((s.t1 != null ? s.t1 : (s.end || 0) * 1000));
+    const text = '"' + s.text.trim().replace(/"/g, '""') + '"';
+    lines.push(`${start},${end},${text}`);
   }
   return lines.join('\n');
 }

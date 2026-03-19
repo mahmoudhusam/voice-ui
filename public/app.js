@@ -28,6 +28,9 @@
   var outputBaseName = document.getElementById('outputBaseName');
   var inlineError = document.getElementById('inlineError');
   var connectionBanner = document.getElementById('connectionBanner');
+  var folderInput = document.getElementById('folderInput');
+  var folderBrowse = document.getElementById('folderBrowse');
+  var outputPath = document.getElementById('outputPath');
 
   // --- WebSocket ---
   function connectWebSocket() {
@@ -102,6 +105,7 @@
           percent: 100,
           outputs: msg.outputs,
           duration: msg.duration,
+          savedToPath: msg.savedToPath || '',
         });
         checkAllDone();
         break;
@@ -192,7 +196,8 @@
   }
 
   // --- Drag & Drop ---
-  dropZone.addEventListener('click', function () {
+  dropZone.addEventListener('click', function (e) {
+    if (e.target === folderBrowse) return;
     fileInput.click();
   });
 
@@ -200,6 +205,28 @@
     if (fileInput.files.length) {
       addFiles(fileInput.files);
       fileInput.value = '';
+    }
+  });
+
+  folderBrowse.addEventListener('click', function (e) {
+    e.stopPropagation();
+    folderInput.click();
+  });
+
+  var SUPPORTED_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.mp3', '.wav', '.m4a', '.ogg', '.flac'];
+
+  folderInput.addEventListener('change', function () {
+    if (folderInput.files.length) {
+      var filtered = Array.prototype.filter.call(folderInput.files, function (f) {
+        var ext = f.name.lastIndexOf('.') !== -1 ? f.name.substring(f.name.lastIndexOf('.')).toLowerCase() : '';
+        return SUPPORTED_EXTENSIONS.indexOf(ext) !== -1;
+      });
+      if (filtered.length > 0) {
+        addFiles(filtered);
+      } else {
+        showError('No supported audio/video files found in the selected folder.');
+      }
+      folderInput.value = '';
     }
   });
 
@@ -280,10 +307,15 @@
     formData.append('outputFormats', JSON.stringify(formats));
     formData.append('clientId', clientId);
 
+    var task = document.querySelector('input[name="task"]:checked').value;
+    formData.append('task', task);
+
     var nameVal = outputBaseName.value.trim();
     if (nameVal) {
       formData.append('outputBaseName', nameVal);
     }
+
+    formData.append('outputPath', outputPath.value.trim());
 
     // UI: disable upload, show processing state
     setProcessingState(true);
@@ -396,7 +428,14 @@
 
     // Show downloads + duration
     if (data.status === 'completed' && data.outputs) {
-      var html = '<div class="job-downloads">';
+      var html = '';
+      if (data.savedToPath) {
+        html += '<div class="saved-path-msg">' +
+          '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+          'Files saved to: ' + escapeHtml(data.savedToPath) +
+          '</div>';
+      }
+      html += '<div class="job-downloads">';
       data.outputs.forEach(function (o) {
         html +=
           '<a class="btn-download" href="' + o.downloadUrl + '" download>' +
@@ -407,10 +446,18 @@
           o.format.toUpperCase() +
           '</a>';
       });
+      // Preview button
+      html +=
+        '<button class="preview-btn" data-jobid="' + jobId + '">' +
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>' +
+        '<circle cx="12" cy="12" r="3"/></svg>' +
+        'Preview</button>';
       html += '</div>';
       if (data.duration) {
         html += '<div class="job-duration">' + formatDuration(data.duration) + '</div>';
       }
+      html += '<div id="preview-area-' + jobId + '"></div>';
       downloads.innerHTML = html;
     }
 
@@ -490,6 +537,43 @@
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
   }
+
+  // --- Preview ---
+  jobsSection.addEventListener('click', function (e) {
+    var previewBtn = e.target.closest('.preview-btn');
+    if (previewBtn) {
+      var jid = previewBtn.getAttribute('data-jobid');
+      var area = document.getElementById('preview-area-' + jid);
+      if (!area) return;
+      if (area.innerHTML) {
+        area.innerHTML = '';
+        return;
+      }
+      previewBtn.disabled = true;
+      fetch('/api/jobs/' + jid + '/preview')
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          area.innerHTML =
+            '<div class="preview-container">' +
+            '<div class="preview-header"><span>Preview</span><button class="preview-close" data-jobid="' + jid + '">&times;</button></div>' +
+            '<pre dir="auto" style="margin:0;font-family:inherit;font-size:inherit;white-space:pre-wrap;word-wrap:break-word;">' + escapeHtml(data.text) + '</pre>' +
+            '</div>';
+          previewBtn.disabled = false;
+        })
+        .catch(function () {
+          area.innerHTML = '<div class="job-error">Failed to load preview.</div>';
+          previewBtn.disabled = false;
+        });
+      return;
+    }
+
+    var closeBtn = e.target.closest('.preview-close');
+    if (closeBtn) {
+      var jid2 = closeBtn.getAttribute('data-jobid');
+      var area2 = document.getElementById('preview-area-' + jid2);
+      if (area2) area2.innerHTML = '';
+    }
+  });
 
   // --- Init ---
   connectWebSocket();

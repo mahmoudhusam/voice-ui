@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import config from '../config.js';
 import { addJob, getJob } from '../services/queue.js';
@@ -68,7 +69,7 @@ const SUPPORTED_LANGUAGES = new Set([
   'chinese', 'zulu',
 ]);
 
-const SUPPORTED_FORMATS = new Set(['txt', 'srt', 'vtt', 'json']);
+const SUPPORTED_FORMATS = new Set(['txt', 'srt', 'vtt', 'json', 'lrc', 'csv', 'json-full']);
 
 // POST /api/transcribe
 router.post('/transcribe', upload.array('files', 10), (req, res) => {
@@ -78,8 +79,9 @@ router.post('/transcribe', upload.array('files', 10), (req, res) => {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    const { language, clientId, outputBaseName } = req.body;
+    const { language, clientId, outputBaseName, outputPath } = req.body;
     let { outputFormats } = req.body;
+    const task = req.body.task || 'transcribe';
 
     if (!language) {
       return res.status(400).json({ error: 'Language is required' });
@@ -87,6 +89,10 @@ router.post('/transcribe', upload.array('files', 10), (req, res) => {
 
     if (!SUPPORTED_LANGUAGES.has(language.toLowerCase())) {
       return res.status(400).json({ error: `Unsupported language: ${language}` });
+    }
+
+    if (task !== 'transcribe' && task !== 'translate') {
+      return res.status(400).json({ error: `Invalid task: ${task}. Must be 'transcribe' or 'translate'` });
     }
 
     // outputFormats may come as a JSON string or as repeated form fields
@@ -119,6 +125,8 @@ router.post('/transcribe', upload.array('files', 10), (req, res) => {
         outputFormats,
         clientId,
         outputBaseName: outputBaseName || '',
+        task,
+        outputPath: outputPath || '',
         status: 'queued',
       };
 
@@ -174,9 +182,49 @@ router.get('/jobs/:jobId/download/:filename', (req, res) => {
   const ts = job.completedAt ? new Date(job.completedAt) : new Date();
   const pad = (n) => String(n).padStart(2, '0');
   const timestamp = `${ts.getFullYear()}-${pad(ts.getMonth() + 1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}-${pad(ts.getSeconds())}`;
-  const downloadName = `${baseName}_${timestamp}.${output.format}`;
+  const extMap = { 'json-full': 'json', lrc: 'lrc', csv: 'csv' };
+  const ext = extMap[output.format] || output.format;
+  const suffix = output.format === 'json-full' ? '_full' : '';
+  const downloadName = `${baseName}_${timestamp}${suffix}.${ext}`;
 
   res.download(output.path, downloadName);
+});
+
+// GET /api/jobs/:jobId/preview
+router.get('/jobs/:jobId/preview', (req, res) => {
+  const job = getJob(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({ error: 'Job not found' });
+  }
+
+  if (job.status !== 'completed') {
+    return res.status(400).json({ error: 'Job is not completed yet' });
+  }
+
+  // Look for txt output first
+  const txtOutput = job.outputs.find((o) => o.format === 'txt');
+  if (txtOutput) {
+    try {
+      const text = fs.readFileSync(txtOutput.path, 'utf-8');
+      return res.json({ text });
+    } catch {
+      return res.json({ text: 'Failed to read output file.' });
+    }
+  }
+
+  // Fallback: try json output
+  const jsonOutput = job.outputs.find((o) => o.format === 'json');
+  if (jsonOutput) {
+    try {
+      const data = JSON.parse(fs.readFileSync(jsonOutput.path, 'utf-8'));
+      const text = (data.segments || []).map((s) => s.text.trim()).join('\n');
+      return res.json({ text: text || 'No text content found.' });
+    } catch {
+      return res.json({ text: 'Failed to read output file.' });
+    }
+  }
+
+  res.json({ text: 'No text output available. Please include Text (.txt) in your output formats.' });
 });
 
 export default router;
