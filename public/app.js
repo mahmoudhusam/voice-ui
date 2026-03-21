@@ -8,6 +8,7 @@
   var clientId = null;
   var ws = null;
   var activeJobs = {};
+  var jobTimers = {};
   var totalJobs = 0;
   var completedCount = 0;
   var failedCount = 0;
@@ -81,6 +82,7 @@
         break;
 
       case 'job_started':
+        startJobTimer(msg.jobId);
         updateJobCard(msg.jobId, {
           status: 'converting',
           statusText: 'Starting...',
@@ -89,15 +91,22 @@
         break;
 
       case 'progress':
-        var stageLabel = msg.stage === 'converting' ? 'Converting audio' : 'Transcribing';
-        updateJobCard(msg.jobId, {
-          status: msg.stage,
-          statusText: stageLabel + '... ' + msg.percent + '%',
-          percent: msg.percent,
-        });
+        if (msg.stage === 'transcribing') {
+          startJobTimer(msg.jobId);
+          updateJobCard(msg.jobId, {
+            status: 'transcribing',
+          });
+        } else {
+          updateJobCard(msg.jobId, {
+            status: msg.stage,
+            statusText: 'Converting audio... ' + msg.percent + '%',
+            percent: msg.percent,
+          });
+        }
         break;
 
       case 'job_completed':
+        clearJobTimer(msg.jobId);
         completedCount++;
         updateJobCard(msg.jobId, {
           status: 'completed',
@@ -111,6 +120,7 @@
         break;
 
       case 'job_failed':
+        clearJobTimer(msg.jobId);
         failedCount++;
         updateJobCard(msg.jobId, {
           status: 'failed',
@@ -411,6 +421,9 @@
     if (data.status === 'queued') {
       bar.className = 'progress-bar-fill queued';
       bar.style.width = '';
+    } else if (data.status === 'transcribing') {
+      bar.className = 'progress-bar-fill transcribing-pulse';
+      bar.style.width = '';
     } else if (data.percent !== undefined) {
       bar.className = 'progress-bar-fill';
       bar.style.width = data.percent + '%';
@@ -495,6 +508,32 @@
         jobsSection.innerHTML = '';
         clearError();
       });
+    }
+  }
+
+  // --- Job Timers ---
+  function startJobTimer(jobId) {
+    if (jobTimers[jobId]) return;
+    var startTime = Date.now();
+    var ptext = document.getElementById('ptext-' + jobId);
+    function updateElapsed() {
+      var elapsed = Math.floor((Date.now() - startTime) / 1000);
+      var min = Math.floor(elapsed / 60);
+      var sec = elapsed % 60;
+      var timeStr = min + ':' + (sec < 10 ? '0' : '') + sec;
+      if (ptext) ptext.textContent = 'Transcribing... (' + timeStr + ' elapsed)';
+    }
+    updateElapsed();
+    jobTimers[jobId] = {
+      startTime: startTime,
+      interval: setInterval(updateElapsed, 1000),
+    };
+  }
+
+  function clearJobTimer(jobId) {
+    if (jobTimers[jobId]) {
+      clearInterval(jobTimers[jobId].interval);
+      delete jobTimers[jobId];
     }
   }
 

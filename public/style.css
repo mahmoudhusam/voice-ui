@@ -662,6 +662,19 @@ main.container {
   width: 100% !important;
 }
 
+.progress-bar-fill.transcribing-pulse {
+  width: 100% !important;
+  background: var(--primary);
+  background-image: linear-gradient(
+    90deg,
+    var(--primary) 0%,
+    #60a5fa 50%,
+    var(--primary) 100%
+  );
+  background-size: 200% 100%;
+  animation: pulse-slide 1.5s ease-in-out infinite;
+}
+
 .progress-bar-fill.converting {
   background: var(--warning);
 }
@@ -787,6 +800,11 @@ main.container {
   to {
     transform: rotate(360deg);
   }
+}
+
+@keyframes pulse-slide {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 @keyframes stripes {

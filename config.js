@@ -14,7 +14,7 @@ const config = {
   port: 3000,
   whisperServerHost: '127.0.0.1',
   whisperServerPort: 8178,
-  useGpu: false,
+  useGpu: true,
 };
 
 // Auto-create directories if they don't exist
