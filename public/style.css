@@ -133,6 +133,14 @@ main.container {
   text-decoration: underline;
 }
 
+/* Folder browse line */
+.folder-browse-line {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
 /* Connection Banner */
 .connection-banner {
   display: none;

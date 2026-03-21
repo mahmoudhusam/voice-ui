@@ -196,8 +196,7 @@
   }
 
   // --- Drag & Drop ---
-  dropZone.addEventListener('click', function (e) {
-    if (e.target === folderBrowse) return;
+  dropZone.addEventListener('click', function () {
     fileInput.click();
   });
 
@@ -208,8 +207,7 @@
     }
   });
 
-  folderBrowse.addEventListener('click', function (e) {
-    e.stopPropagation();
+  folderBrowse.addEventListener('click', function () {
     folderInput.click();
   });
 
