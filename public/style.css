@@ -47,7 +47,7 @@ body {
 .header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 24px 0;
+  padding: 16px 0;
   text-align: center;
 }
 
@@ -63,12 +63,6 @@ body {
 
 .logo-icon {
   flex-shrink: 0;
-}
-
-.subtitle {
-  color: var(--text-muted);
-  font-size: 1rem;
-  margin-top: 4px;
 }
 
 /* Main */
@@ -87,7 +81,7 @@ main.container {
   border: 2px dashed var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  padding: 48px 24px;
+  padding: 32px 24px;
   text-align: center;
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease;
@@ -257,11 +251,11 @@ main.container {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px 24px;
+  padding: 16px 20px;
   margin-bottom: 24px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
 
 .option-label {
@@ -291,10 +285,15 @@ main.container {
   box-shadow: 0 0 0 3px var(--primary-light);
 }
 
-.format-checkboxes {
+.option-row {
   display: flex;
-  flex-wrap: wrap;
   gap: 16px;
+}
+
+.format-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 16px;
 }
 
 .format-check {
@@ -756,24 +755,6 @@ main.container {
   border-color: var(--primary);
 }
 
-/* Footer */
-.footer {
-  text-align: center;
-  padding: 20px 0;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  border-top: 1px solid var(--border);
-}
-
-.footer a {
-  color: var(--primary);
-  text-decoration: none;
-}
-
-.footer a:hover {
-  text-decoration: underline;
-}
-
 /* Upload section disabled state */
 .upload-section.disabled .drop-zone {
   opacity: 0.5;
@@ -816,6 +797,10 @@ main.container {
 
 /* Responsive */
 @media (max-width: 600px) {
+  .option-row {
+    flex-direction: column;
+  }
+
   .header {
     padding: 18px 0;
   }
