@@ -5,7 +5,7 @@ import fs from 'fs';
 import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import config from '../config.js';
-import { addJob, getJob } from '../services/queue.js';
+import { addJob, getJob, cleanupJobs } from '../services/queue.js';
 
 const router = Router();
 
@@ -226,6 +226,26 @@ router.get('/jobs/:jobId/preview', (req, res) => {
   }
 
   res.json({ text: 'No text output available. Please include Text (.txt) in your output formats.' });
+});
+
+// GET /api/jobs/:jobId/media — serve original file for playback
+router.get('/jobs/:jobId/media', (req, res) => {
+  const job = getJob(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({ error: 'Job not found' });
+  }
+
+  if (!job.filePath || !fs.existsSync(job.filePath)) {
+    return res.status(404).json({ error: 'Media file not found' });
+  }
+
+  res.sendFile(path.resolve(job.filePath));
+});
+
+// POST /api/cleanup — delete all temp files for finished jobs
+router.post('/cleanup', (req, res) => {
+  const cleaned = cleanupJobs();
+  res.json({ success: true, cleaned });
 });
 
 // GET /api/browse-folders

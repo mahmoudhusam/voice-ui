@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { processFile } from './whisper.js';
 import { broadcastToClient } from '../server.js';
 
@@ -88,4 +89,30 @@ async function processNext() {
 
   processing = false;
   processNext();
+}
+
+export function cleanupJobs() {
+  let cleaned = 0;
+  for (const [id, job] of jobs.entries()) {
+    if (job.status === 'completed' || job.status === 'failed') {
+      // Delete original uploaded file
+      if (job.filePath) {
+        try {
+          if (fs.existsSync(job.filePath)) fs.unlinkSync(job.filePath);
+        } catch (e) { /* ignore */ }
+      }
+      // Delete output files in outputs dir
+      if (job.outputs) {
+        for (const o of job.outputs) {
+          try {
+            if (o.path && fs.existsSync(o.path)) fs.unlinkSync(o.path);
+          } catch (e) { /* ignore */ }
+        }
+      }
+      jobs.delete(id);
+      cleaned++;
+    }
+  }
+  console.log(`[Queue] Cleaned up ${cleaned} job(s)`);
+  return cleaned;
 }

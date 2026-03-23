@@ -518,6 +518,7 @@
       jobsSection.appendChild(resetDiv);
 
       document.getElementById('resetBtn').addEventListener('click', function () {
+        fetch('/api/cleanup', { method: 'POST' }).catch(function() {});
         setProcessingState(false);
         jobsSection.innerHTML = '';
         clearError();
@@ -610,11 +611,30 @@
       fetch('/api/jobs/' + jid + '/preview')
         .then(function (res) { return res.json(); })
         .then(function (data) {
+          var mediaUrl = '/api/jobs/' + jid + '/media';
           area.innerHTML =
             '<div class="preview-container">' +
             '<div class="preview-header"><span>Preview</span><button class="preview-close" data-jobid="' + jid + '">&times;</button></div>' +
-            '<pre dir="auto" style="margin:0;font-family:inherit;font-size:inherit;white-space:pre-wrap;word-wrap:break-word;">' + escapeHtml(data.text) + '</pre>' +
+            '<div class="preview-split">' +
+            '<div class="preview-player" id="player-' + jid + '">' +
+            '<video controls preload="metadata" class="preview-media" src="' + mediaUrl + '"></video>' +
+            '</div>' +
+            '<div class="preview-text-panel">' +
+            '<pre dir="auto">' + escapeHtml(data.text) + '</pre>' +
+            '</div>' +
+            '</div>' +
             '</div>';
+
+          // If video can't play the format, fall back to audio-only
+          var vid = document.querySelector('#player-' + jid + ' video');
+          if (vid) {
+            vid.addEventListener('error', function() {
+              var playerDiv = document.getElementById('player-' + jid);
+              if (playerDiv) {
+                playerDiv.innerHTML = '<audio controls preload="metadata" class="preview-media" src="' + mediaUrl + '"></audio>';
+              }
+            });
+          }
           previewBtn.disabled = false;
         })
         .catch(function () {

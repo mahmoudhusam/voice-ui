@@ -319,11 +319,8 @@ function formatTimestamp(seconds, srtFormat) {
 // --- Cleanup ---
 
 function cleanup(originalFile, wavFile) {
-  try {
-    if (fs.existsSync(originalFile)) fs.unlinkSync(originalFile);
-  } catch (err) {
-    console.error(`[Whisper] Failed to delete original file: ${err.message}`);
-  }
+  // Only delete WAV, keep original for media preview
+  // Original gets cleaned up via /api/cleanup when user is done
   try {
     if (fs.existsSync(wavFile)) fs.unlinkSync(wavFile);
   } catch (err) {
