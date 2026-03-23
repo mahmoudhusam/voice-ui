@@ -97,6 +97,8 @@ async function runWhisper(wavPath, job, progressCallback) {
     throw new Error('Whisper server is not running. Please restart the application.');
   }
 
+  progressCallback({ stage: 'transcribing', percent: 0 });
+
   // Register real-time progress from whisper-server stderr
   onProgress((percent) => {
     progressCallback({ stage: 'transcribing', percent });

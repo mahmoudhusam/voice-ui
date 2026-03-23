@@ -83,7 +83,6 @@
         break;
 
       case 'job_started':
-        startJobTimer(msg.jobId);
         updateJobCard(msg.jobId, {
           status: 'converting',
           statusText: 'Starting...',
@@ -93,6 +92,7 @@
 
       case 'progress':
         if (msg.stage === 'transcribing') {
+          clearJobTimer(msg.jobId);
           startJobTimer(msg.jobId);
           updateJobCard(msg.jobId, {
             status: 'transcribing',
@@ -527,7 +527,10 @@
 
   // --- Job Timers ---
   function startJobTimer(jobId) {
-    if (jobTimers[jobId]) return;
+    if (jobTimers[jobId]) {
+      clearInterval(jobTimers[jobId].interval);
+      delete jobTimers[jobId];
+    }
     var startTime = Date.now();
     var ptext = document.getElementById('ptext-' + jobId);
     function updateElapsed() {
