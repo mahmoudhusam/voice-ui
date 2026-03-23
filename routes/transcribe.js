@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import config from '../config.js';
 import { addJob, getJob } from '../services/queue.js';
@@ -225,6 +226,71 @@ router.get('/jobs/:jobId/preview', (req, res) => {
   }
 
   res.json({ text: 'No text output available. Please include Text (.txt) in your output formats.' });
+});
+
+// GET /api/browse-folders
+router.get('/browse-folders', (req, res) => {
+  try {
+    let targetPath = req.query.path ? String(req.query.path) : '';
+
+    // If no path provided, use home directory
+    if (!targetPath) {
+      targetPath = os.homedir();
+    }
+
+    // On Windows, if no path was provided, also include drive letters
+    const isWindows = os.platform() === 'win32';
+    let drives = [];
+    if (isWindows && !req.query.path) {
+      for (let i = 65; i <= 90; i++) {
+        const letter = String.fromCharCode(i);
+        const drivePath = letter + ':\\';
+        try {
+          if (fs.existsSync(drivePath)) {
+            drives.push(drivePath);
+          }
+        } catch {
+          // skip inaccessible drives
+        }
+      }
+    }
+
+    // Resolve to absolute path
+    targetPath = path.resolve(targetPath);
+
+    if (!fs.existsSync(targetPath)) {
+      return res.status(400).json({ error: 'Path does not exist' });
+    }
+
+    const stat = fs.statSync(targetPath);
+    if (!stat.isDirectory()) {
+      return res.status(400).json({ error: 'Path is not a directory' });
+    }
+
+    let entries;
+    try {
+      entries = fs.readdirSync(targetPath, { withFileTypes: true });
+    } catch (err) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+
+    const folders = entries
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+    const parentPath = path.dirname(targetPath);
+
+    res.json({
+      currentPath: targetPath,
+      parentPath: parentPath !== targetPath ? parentPath : null,
+      folders,
+      drives: drives.length > 0 ? drives : undefined,
+    });
+  } catch (err) {
+    console.error('[API] Error browsing folders:', err);
+    res.status(500).json({ error: 'Failed to browse folders' });
+  }
 });
 
 export default router;

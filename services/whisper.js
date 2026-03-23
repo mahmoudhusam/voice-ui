@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import http from 'http';
 import config from '../config.js';
-import { isReady } from './whisper-server-manager.js';
+import { isReady, onProgress, offProgress } from './whisper-server-manager.js';
 
 const WHISPER_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
@@ -97,15 +97,21 @@ async function runWhisper(wavPath, job, progressCallback) {
     throw new Error('Whisper server is not running. Please restart the application.');
   }
 
-  progressCallback({ stage: 'transcribing', percent: 0 });
+  // Register real-time progress from whisper-server stderr
+  onProgress((percent) => {
+    progressCallback({ stage: 'transcribing', percent });
+  });
 
   // Read WAV file and send to whisper-server for verbose_json
   const wavBuffer = fs.readFileSync(wavPath);
-  const result = await sendToWhisperServer(wavBuffer, job.language, job.task);
-
+  let result;
+  try {
+    result = await sendToWhisperServer(wavBuffer, job.language, job.task);
+  } finally {
+    offProgress();
+  }
 
   console.log(`[Whisper] Transcription complete for job ${job.id}`);
-  progressCallback({ stage: 'transcribing', percent: 100 });
 
   // Generate output files from verbose_json
   const outputPrefix = path.join(config.outputDir, job.id);

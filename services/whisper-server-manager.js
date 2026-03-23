@@ -2,6 +2,10 @@ import { spawn } from 'child_process';
 
 let serverProcess = null;
 let ready = false;
+let progressCallback = null;
+
+export function onProgress(callback) { progressCallback = callback; }
+export function offProgress() { progressCallback = null; }
 
 export async function startServer(config) {
   const args = [
@@ -30,6 +34,12 @@ export async function startServer(config) {
   serverProcess.stderr.on('data', (data) => {
     const text = data.toString().trim();
     if (text) console.log(`[WhisperServer] ${text}`);
+
+    const progressMatch = text.match(/progress\s*=\s*(\d+)%/);
+    if (progressMatch && progressCallback) {
+      const percent = parseInt(progressMatch[1]);
+      progressCallback(percent);
+    }
   });
 
   serverProcess.on('error', (err) => {

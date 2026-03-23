@@ -32,6 +32,7 @@
   var folderInput = document.getElementById('folderInput');
   var folderBrowse = document.getElementById('folderBrowse');
   var outputPath = document.getElementById('outputPath');
+  var browseBtn = document.getElementById('browseBtn');
 
   // --- WebSocket ---
   function connectWebSocket() {
@@ -95,6 +96,7 @@
           startJobTimer(msg.jobId);
           updateJobCard(msg.jobId, {
             status: 'transcribing',
+            percent: msg.percent,
           });
         } else {
           updateJobCard(msg.jobId, {
@@ -422,8 +424,17 @@
       bar.className = 'progress-bar-fill queued';
       bar.style.width = '';
     } else if (data.status === 'transcribing') {
-      bar.className = 'progress-bar-fill transcribing-pulse';
-      bar.style.width = '';
+      if (data.percent !== undefined && data.percent > 0) {
+        bar.className = 'progress-bar-fill';
+        bar.style.width = data.percent + '%';
+        // Store percent so the elapsed timer can show it
+        if (jobTimers[jobId]) {
+          jobTimers[jobId].lastPercent = data.percent;
+        }
+      } else {
+        bar.className = 'progress-bar-fill transcribing-pulse';
+        bar.style.width = '';
+      }
     } else if (data.percent !== undefined) {
       bar.className = 'progress-bar-fill';
       bar.style.width = data.percent + '%';
@@ -440,17 +451,20 @@
     // Show downloads + duration
     if (data.status === 'completed' && data.outputs) {
       var html = '';
-      if (data.savedToPath) {
+      var autoSaved = data.savedToPath && data.savedToPath.length > 0;
+      if (autoSaved) {
         html += '<div class="saved-path-msg">' +
           '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
           'Files saved to: ' + escapeHtml(data.savedToPath) +
           '</div>';
       }
+      var btnClass = autoSaved ? 'btn-download-secondary' : 'btn-download';
+      var iconSize = autoSaved ? '12' : '14';
       html += '<div class="job-downloads">';
       data.outputs.forEach(function (o) {
         html +=
-          '<a class="btn-download" href="' + o.downloadUrl + '" download>' +
-          '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<a class="' + btnClass + '" href="' + o.downloadUrl + '" download>' +
+          '<svg viewBox="0 0 24 24" width="' + iconSize + '" height="' + iconSize + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
           '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
           '<polyline points="7 10 12 15 17 10"/>' +
           '<line x1="12" y1="15" x2="12" y2="3"/></svg>' +
@@ -521,12 +535,15 @@
       var min = Math.floor(elapsed / 60);
       var sec = elapsed % 60;
       var timeStr = min + ':' + (sec < 10 ? '0' : '') + sec;
-      if (ptext) ptext.textContent = 'Transcribing... (' + timeStr + ' elapsed)';
+      var timer = jobTimers[jobId];
+      var percentStr = timer && timer.lastPercent > 0 ? timer.lastPercent + '% ' : '';
+      if (ptext) ptext.textContent = 'Transcribing... ' + percentStr + '(' + timeStr + ' elapsed)';
     }
     updateElapsed();
     jobTimers[jobId] = {
       startTime: startTime,
       interval: setInterval(updateElapsed, 1000),
+      lastPercent: 0,
     };
   }
 
@@ -611,6 +628,112 @@
       if (area2) area2.innerHTML = '';
     }
   });
+
+  // --- Folder Browser Modal ---
+  browseBtn.addEventListener('click', function () {
+    openFolderBrowser();
+  });
+
+  function openFolderBrowser(startPath) {
+    var overlay = document.createElement('div');
+    overlay.className = 'folder-modal-overlay';
+    overlay.innerHTML =
+      '<div class="folder-modal">' +
+      '<div class="folder-modal-path" id="folderModalPath">Loading...</div>' +
+      '<div class="folder-list" id="folderList"></div>' +
+      '<div class="folder-modal-actions">' +
+      '<button class="btn-browse" id="folderCancelBtn">Cancel</button>' +
+      '<button class="btn-primary" style="padding:9px 20px;font-size:0.9rem" id="folderSelectBtn">Select this folder</button>' +
+      '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    var currentBrowsePath = '';
+
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) {
+        overlay.remove();
+      }
+    });
+
+    document.getElementById('folderCancelBtn').addEventListener('click', function () {
+      overlay.remove();
+    });
+
+    document.getElementById('folderSelectBtn').addEventListener('click', function () {
+      if (currentBrowsePath) {
+        outputPath.value = currentBrowsePath;
+      }
+      overlay.remove();
+    });
+
+    function loadFolder(folderPath) {
+      var url = '/api/browse-folders';
+      if (folderPath) {
+        url += '?path=' + encodeURIComponent(folderPath);
+      }
+      var pathEl = document.getElementById('folderModalPath');
+      var listEl = document.getElementById('folderList');
+      pathEl.textContent = 'Loading...';
+      listEl.innerHTML = '';
+
+      fetch(url)
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) {
+            pathEl.textContent = 'Error: ' + data.error;
+            return;
+          }
+          currentBrowsePath = data.currentPath;
+          pathEl.textContent = data.currentPath;
+
+          var html = '';
+
+          // Parent directory
+          if (data.parentPath) {
+            html += '<div class="folder-item" data-path="' + escapeHtml(data.parentPath) + '">' +
+              '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
+              '..</div>';
+          }
+
+          // Drive letters (Windows)
+          if (data.drives) {
+            data.drives.forEach(function (d) {
+              html += '<div class="folder-item" data-path="' + escapeHtml(d) + '">' +
+                '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="12" x2="6" y2="12.01"/></svg>' +
+                escapeHtml(d) + '</div>';
+            });
+          }
+
+          // Folders
+          data.folders.forEach(function (name) {
+            html += '<div class="folder-item" data-path="' + escapeHtml(data.currentPath + (data.currentPath.endsWith('/') || data.currentPath.endsWith('\\') ? '' : '/') + name) + '">' +
+              '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
+              escapeHtml(name) + '</div>';
+          });
+
+          if (!data.folders.length && !data.drives) {
+            html += '<div style="padding:12px;color:var(--text-muted);font-size:0.85rem;text-align:center;">No subfolders</div>';
+          }
+
+          listEl.innerHTML = html;
+        })
+        .catch(function () {
+          pathEl.textContent = 'Failed to load folders';
+        });
+    }
+
+    // Navigate on folder click
+    overlay.querySelector('.folder-modal').addEventListener('click', function (e) {
+      var item = e.target.closest('.folder-item');
+      if (item) {
+        loadFolder(item.getAttribute('data-path'));
+      }
+    });
+
+    // Start loading
+    loadFolder(startPath || outputPath.value.trim() || '');
+  }
 
   // --- Init ---
   connectWebSocket();

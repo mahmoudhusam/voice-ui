@@ -231,8 +231,11 @@
         </div>
         <div class="option-group" style="flex:1">
           <label for="outputPath" class="option-label">Save to Folder (optional)</label>
-          <input type="text" id="outputPath" class="option-input"
-                 placeholder="Leave empty to download from browser (e.g., C:\Users\Name\Desktop)">
+          <div class="input-with-btn">
+            <input type="text" id="outputPath" class="option-input"
+                   placeholder="Leave empty to download from browser (e.g., C:\Users\Name\Desktop)">
+            <button type="button" class="btn-browse" id="browseBtn">Browse</button>
+          </div>
         </div>
       </div>
     </section>
