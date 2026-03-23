@@ -93,9 +93,9 @@
       case 'progress':
         if (msg.stage === 'transcribing') {
           clearJobTimer(msg.jobId);
-          startJobTimer(msg.jobId);
           updateJobCard(msg.jobId, {
             status: 'transcribing',
+            statusText: 'Transcribing... ' + msg.percent + '%',
             percent: msg.percent,
           });
         } else {
@@ -424,7 +424,7 @@
       bar.className = 'progress-bar-fill queued';
       bar.style.width = '';
     } else if (data.status === 'transcribing') {
-      if (data.percent !== undefined && data.percent > 0) {
+      if (data.percent !== undefined && data.percent >= 0) {
         bar.className = 'progress-bar-fill';
         bar.style.width = data.percent + '%';
         // Store percent so the elapsed timer can show it

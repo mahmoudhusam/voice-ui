@@ -12,6 +12,7 @@ export async function startServer(config) {
     '--model', config.modelPath,
     '--host', config.whisperServerHost,
     '--port', String(config.whisperServerPort),
+    '--print-progress',
   ];
 
   if (!config.useGpu) {

@@ -779,16 +779,9 @@ main.container {
 }
 
 .progress-bar-fill.transcribing-pulse {
-  width: 100% !important;
+  width: 30% !important;
   background: var(--primary);
-  background-image: linear-gradient(
-    90deg,
-    var(--primary) 0%,
-    #60a5fa 50%,
-    var(--primary) 100%
-  );
-  background-size: 200% 100%;
-  animation: pulse-slide 1.5s ease-in-out infinite;
+  animation: slide-bounce 1.5s ease-in-out infinite;
 }
 
 .progress-bar-fill.converting {
@@ -918,9 +911,10 @@ main.container {
   }
 }
 
-@keyframes pulse-slide {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+@keyframes slide-bounce {
+  0% { margin-left: 0; }
+  50% { margin-left: 70%; }
+  100% { margin-left: 0; }
 }
 
 @keyframes stripes {
