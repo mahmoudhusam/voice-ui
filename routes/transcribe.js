@@ -248,6 +248,16 @@ router.post('/cleanup', (req, res) => {
   res.json({ success: true, cleaned });
 });
 
+// POST /api/shutdown
+router.post('/shutdown', (req, res) => {
+  res.json({ success: true, message: 'Shutting down...' });
+  setTimeout(async () => {
+    const { stopServer } = await import('../services/whisper-server-manager.js');
+    await stopServer();
+    process.exit(0);
+  }, 500);
+});
+
 // GET /api/browse-folders
 router.get('/browse-folders', (req, res) => {
   try {

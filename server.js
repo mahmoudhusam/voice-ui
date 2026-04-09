@@ -19,9 +19,17 @@ app.use('/api', transcribeRouter);
 // WebSocket setup
 const wss = new WebSocketServer({ server });
 const clients = new Map();
+let shutdownTimer = null;
 
 wss.on('connection', (ws) => {
   const clientId = uuidv4();
+
+  if (shutdownTimer) {
+    clearTimeout(shutdownTimer);
+    shutdownTimer = null;
+    console.log('[Server] Shutdown cancelled - client reconnected');
+  }
+
   clients.set(clientId, ws);
 
   console.log(`[WS] Client connected: ${clientId}`);
@@ -31,6 +39,15 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     clients.delete(clientId);
     console.log(`[WS] Client disconnected: ${clientId}`);
+
+    if (clients.size === 0) {
+      console.log('[Server] No clients connected. Shutting down in 5 seconds...');
+      shutdownTimer = setTimeout(async () => {
+        console.log('[Server] Shutting down...');
+        await stopWhisperServer();
+        process.exit(0);
+      }, 5000);
+    }
   });
 });
 

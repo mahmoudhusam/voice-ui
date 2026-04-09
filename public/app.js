@@ -758,6 +758,19 @@
     loadFolder(startPath || outputPath.value.trim() || '');
   }
 
+  // --- Quit ---
+  document.getElementById('quitBtn').addEventListener('click', function () {
+    if (confirm('Are you sure you want to quit VoiceScribe? This will stop the server.')) {
+      fetch('/api/shutdown', { method: 'POST' })
+        .then(function () {
+          document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Segoe UI,system-ui,sans-serif;color:#64748b;font-size:1.1rem;">VoiceScribe has been shut down. You can close this tab.</div>';
+        })
+        .catch(function () {
+          document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Segoe UI,system-ui,sans-serif;color:#64748b;font-size:1.1rem;">VoiceScribe has been shut down. You can close this tab.</div>';
+        });
+    }
+  });
+
   // --- Init ---
   connectWebSocket();
 })();
