@@ -189,7 +189,11 @@
       return;
     }
     fileListHeader.style.display = 'flex';
-    fileListCount.textContent = selectedFiles.length + ' file' + (selectedFiles.length !== 1 ? 's' : '') + ' selected';
+    fileListCount.textContent =
+      selectedFiles.length +
+      ' file' +
+      (selectedFiles.length !== 1 ? 's' : '') +
+      ' selected';
 
     selectedFiles.forEach(function (file, i) {
       var item = document.createElement('div');
@@ -199,10 +203,16 @@
         '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
         '<polyline points="14 2 14 8 20 8"/></svg>' +
         '<div class="file-item-info">' +
-        '<div class="file-item-name">' + escapeHtml(file.name) + '</div>' +
-        '<div class="file-item-size">' + formatFileSize(file.size) + '</div>' +
+        '<div class="file-item-name">' +
+        escapeHtml(file.name) +
         '</div>' +
-        '<button class="file-item-remove" data-index="' + i + '" title="Remove">&times;</button>';
+        '<div class="file-item-size">' +
+        formatFileSize(file.size) +
+        '</div>' +
+        '</div>' +
+        '<button class="file-item-remove" data-index="' +
+        i +
+        '" title="Remove">&times;</button>';
       fileList.appendChild(item);
     });
   }
@@ -223,18 +233,60 @@
     folderInput.click();
   });
 
-  var SUPPORTED_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.mp3', '.wav', '.m4a', '.ogg', '.flac'];
+  var SUPPORTED_EXTENSIONS = [
+    '.mp4',
+    '.mkv',
+    '.avi',
+    '.mov',
+    '.webm',
+    '.mp3',
+    '.wav',
+    '.m4a',
+    '.ogg',
+    '.flac',
+    '.aac',
+    '.opus',
+    '.wmv',
+    '.flv',
+    '.m4v',
+    '.mpg',
+    '.mpeg',
+    '.3gp',
+    '.ogv',
+    '.ts',
+    '.mts',
+    '.m2ts',
+    '.vob',
+    '.wma',
+    '.aiff',
+    '.alac',
+    '.amr',
+    '.mka',
+    '.mid',
+    '.midi',
+    '.pcm',
+    '.aa',
+    '.aax',
+  ];
 
   folderInput.addEventListener('change', function () {
     if (folderInput.files.length) {
-      var filtered = Array.prototype.filter.call(folderInput.files, function (f) {
-        var ext = f.name.lastIndexOf('.') !== -1 ? f.name.substring(f.name.lastIndexOf('.')).toLowerCase() : '';
-        return SUPPORTED_EXTENSIONS.indexOf(ext) !== -1;
-      });
+      var filtered = Array.prototype.filter.call(
+        folderInput.files,
+        function (f) {
+          var ext =
+            f.name.lastIndexOf('.') !== -1
+              ? f.name.substring(f.name.lastIndexOf('.')).toLowerCase()
+              : '';
+          return SUPPORTED_EXTENSIONS.indexOf(ext) !== -1;
+        },
+      );
       if (filtered.length > 0) {
         addFiles(filtered);
       } else {
-        showError('No supported audio/video files found in the selected folder.');
+        showError(
+          'No supported audio/video files found in the selected folder.',
+        );
       }
       folderInput.value = '';
     }
@@ -292,7 +344,9 @@
     }
 
     if (!clientId) {
-      showError('Not connected to the server. Please wait a moment and try again.');
+      showError(
+        'Not connected to the server. Please wait a moment and try again.',
+      );
       return;
     }
 
@@ -302,7 +356,9 @@
   function getSelectedFormats() {
     var checks = document.querySelectorAll('input[name="format"]:checked');
     var formats = [];
-    checks.forEach(function (c) { formats.push(c.value); });
+    checks.forEach(function (c) {
+      formats.push(c.value);
+    });
     return formats;
   }
 
@@ -339,7 +395,9 @@
       method: 'POST',
       body: formData,
     })
-      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        return res.json();
+      })
       .then(function (data) {
         if (!data.success) {
           throw new Error(data.error || 'Upload failed');
@@ -387,16 +445,26 @@
     card.id = 'job-' + jobId;
     card.innerHTML =
       '<div class="job-card-header">' +
-      '<span class="job-card-name">' + escapeHtml(originalName) + '</span>' +
-      '<span class="badge badge-queued" id="badge-' + jobId + '">Queued</span>' +
+      '<span class="job-card-name">' +
+      escapeHtml(originalName) +
+      '</span>' +
+      '<span class="badge badge-queued" id="badge-' +
+      jobId +
+      '">Queued</span>' +
       '</div>' +
       '<div class="progress-area">' +
       '<div class="progress-bar-track">' +
-      '<div class="progress-bar-fill queued" id="bar-' + jobId + '"></div>' +
+      '<div class="progress-bar-fill queued" id="bar-' +
+      jobId +
+      '"></div>' +
       '</div>' +
-      '<div class="progress-text" id="ptext-' + jobId + '">Waiting...</div>' +
+      '<div class="progress-text" id="ptext-' +
+      jobId +
+      '">Waiting...</div>' +
       '</div>' +
-      '<div id="downloads-' + jobId + '"></div>';
+      '<div id="downloads-' +
+      jobId +
+      '"></div>';
     jobsSection.appendChild(card);
   }
 
@@ -453,9 +521,11 @@
       var html = '';
       var autoSaved = data.savedToPath && data.savedToPath.length > 0;
       if (autoSaved) {
-        html += '<div class="saved-path-msg">' +
+        html +=
+          '<div class="saved-path-msg">' +
           '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
-          'Files saved to: ' + escapeHtml(data.savedToPath) +
+          'Files saved to: ' +
+          escapeHtml(data.savedToPath) +
           '</div>';
       }
       var btnClass = autoSaved ? 'btn-download-secondary' : 'btn-download';
@@ -463,8 +533,16 @@
       html += '<div class="job-downloads">';
       data.outputs.forEach(function (o) {
         html +=
-          '<a class="' + btnClass + '" href="' + o.downloadUrl + '" download>' +
-          '<svg viewBox="0 0 24 24" width="' + iconSize + '" height="' + iconSize + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<a class="' +
+          btnClass +
+          '" href="' +
+          o.downloadUrl +
+          '" download>' +
+          '<svg viewBox="0 0 24 24" width="' +
+          iconSize +
+          '" height="' +
+          iconSize +
+          '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
           '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
           '<polyline points="7 10 12 15 17 10"/>' +
           '<line x1="12" y1="15" x2="12" y2="3"/></svg>' +
@@ -473,14 +551,19 @@
       });
       // Preview button
       html +=
-        '<button class="preview-btn" data-jobid="' + jobId + '">' +
+        '<button class="preview-btn" data-jobid="' +
+        jobId +
+        '">' +
         '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
         '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>' +
         '<circle cx="12" cy="12" r="3"/></svg>' +
         'Preview</button>';
       html += '</div>';
       if (data.duration) {
-        html += '<div class="job-duration">' + formatDuration(data.duration) + '</div>';
+        html +=
+          '<div class="job-duration">' +
+          formatDuration(data.duration) +
+          '</div>';
       }
       html += '<div id="preview-area-' + jobId + '"></div>';
       downloads.innerHTML = html;
@@ -489,7 +572,8 @@
     // Show error
     if (data.status === 'failed' && data.error) {
       var errorMsg = friendlyError(data.error);
-      downloads.innerHTML = '<div class="job-error">' + escapeHtml(errorMsg) + '</div>';
+      downloads.innerHTML =
+        '<div class="job-error">' + escapeHtml(errorMsg) + '</div>';
     }
   }
 
@@ -501,7 +585,11 @@
       // Summary
       var summaryHtml = '';
       if (failedCount === 0) {
-        summaryHtml = completedCount + ' file' + (completedCount !== 1 ? 's' : '') + ' transcribed successfully';
+        summaryHtml =
+          completedCount +
+          ' file' +
+          (completedCount !== 1 ? 's' : '') +
+          ' transcribed successfully';
       } else {
         summaryHtml = completedCount + ' completed, ' + failedCount + ' failed';
       }
@@ -514,15 +602,18 @@
       // Reset button
       var resetDiv = document.createElement('div');
       resetDiv.style.textAlign = 'center';
-      resetDiv.innerHTML = '<button class="btn-reset" id="resetBtn">Transcribe more files</button>';
+      resetDiv.innerHTML =
+        '<button class="btn-reset" id="resetBtn">Transcribe more files</button>';
       jobsSection.appendChild(resetDiv);
 
-      document.getElementById('resetBtn').addEventListener('click', function () {
-        fetch('/api/cleanup', { method: 'POST' }).catch(function() {});
-        setProcessingState(false);
-        jobsSection.innerHTML = '';
-        clearError();
-      });
+      document
+        .getElementById('resetBtn')
+        .addEventListener('click', function () {
+          fetch('/api/cleanup', { method: 'POST' }).catch(function () {});
+          setProcessingState(false);
+          jobsSection.innerHTML = '';
+          clearError();
+        });
     }
   }
 
@@ -540,8 +631,11 @@
       var sec = elapsed % 60;
       var timeStr = min + ':' + (sec < 10 ? '0' : '') + sec;
       var timer = jobTimers[jobId];
-      var percentStr = timer && timer.lastPercent > 0 ? timer.lastPercent + '% ' : '';
-      if (ptext) ptext.textContent = 'Transcribing... ' + percentStr + '(' + timeStr + ' elapsed)';
+      var percentStr =
+        timer && timer.lastPercent > 0 ? timer.lastPercent + '% ' : '';
+      if (ptext)
+        ptext.textContent =
+          'Transcribing... ' + percentStr + '(' + timeStr + ' elapsed)';
     }
     updateElapsed();
     jobTimers[jobId] = {
@@ -564,7 +658,9 @@
     var units = ['B', 'KB', 'MB', 'GB'];
     var i = Math.floor(Math.log(bytes) / Math.log(1024));
     if (i >= units.length) i = units.length - 1;
-    return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+    return (
+      (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + units[i]
+    );
   }
 
   function formatDuration(ms) {
@@ -578,13 +674,22 @@
   }
 
   function friendlyError(msg) {
-    if (msg.indexOf('whisper-server') !== -1 || msg.indexOf('Whisper server') !== -1) {
+    if (
+      msg.indexOf('whisper-server') !== -1 ||
+      msg.indexOf('Whisper server') !== -1
+    ) {
       return 'Transcription server is not available. Please restart the application.';
     }
-    if (msg.indexOf('Failed to start ffmpeg') !== -1 || msg.indexOf('ENOENT') !== -1 && msg.indexOf('ffmpeg') !== -1) {
+    if (
+      msg.indexOf('Failed to start ffmpeg') !== -1 ||
+      (msg.indexOf('ENOENT') !== -1 && msg.indexOf('ffmpeg') !== -1)
+    ) {
       return 'Audio converter (ffmpeg) not found. Please check that ffmpeg is installed.';
     }
-    if (msg.indexOf('model') !== -1 && msg.indexOf('not found') !== -1 || msg.indexOf('no such file') !== -1 && msg.indexOf('model') !== -1) {
+    if (
+      (msg.indexOf('model') !== -1 && msg.indexOf('not found') !== -1) ||
+      (msg.indexOf('no such file') !== -1 && msg.indexOf('model') !== -1)
+    ) {
       return 'Model file not found. Please check your model configuration.';
     }
     return msg;
@@ -609,18 +714,28 @@
       }
       previewBtn.disabled = true;
       fetch('/api/jobs/' + jid + '/preview')
-        .then(function (res) { return res.json(); })
+        .then(function (res) {
+          return res.json();
+        })
         .then(function (data) {
           var mediaUrl = '/api/jobs/' + jid + '/media';
           area.innerHTML =
             '<div class="preview-container">' +
-            '<div class="preview-header"><span>Preview</span><button class="preview-close" data-jobid="' + jid + '">&times;</button></div>' +
+            '<div class="preview-header"><span>Preview</span><button class="preview-close" data-jobid="' +
+            jid +
+            '">&times;</button></div>' +
             '<div class="preview-split">' +
-            '<div class="preview-player" id="player-' + jid + '">' +
-            '<video controls preload="metadata" class="preview-media" src="' + mediaUrl + '"></video>' +
+            '<div class="preview-player" id="player-' +
+            jid +
+            '">' +
+            '<video controls preload="metadata" class="preview-media" src="' +
+            mediaUrl +
+            '"></video>' +
             '</div>' +
             '<div class="preview-text-panel">' +
-            '<pre dir="auto">' + escapeHtml(data.text) + '</pre>' +
+            '<pre dir="auto">' +
+            escapeHtml(data.text) +
+            '</pre>' +
             '</div>' +
             '</div>' +
             '</div>';
@@ -628,17 +743,21 @@
           // If video can't play the format, fall back to audio-only
           var vid = document.querySelector('#player-' + jid + ' video');
           if (vid) {
-            vid.addEventListener('error', function() {
+            vid.addEventListener('error', function () {
               var playerDiv = document.getElementById('player-' + jid);
               if (playerDiv) {
-                playerDiv.innerHTML = '<audio controls preload="metadata" class="preview-media" src="' + mediaUrl + '"></audio>';
+                playerDiv.innerHTML =
+                  '<audio controls preload="metadata" class="preview-media" src="' +
+                  mediaUrl +
+                  '"></audio>';
               }
             });
           }
           previewBtn.disabled = false;
         })
         .catch(function () {
-          area.innerHTML = '<div class="job-error">Failed to load preview.</div>';
+          area.innerHTML =
+            '<div class="job-error">Failed to load preview.</div>';
           previewBtn.disabled = false;
         });
       return;
@@ -679,16 +798,20 @@
       }
     });
 
-    document.getElementById('folderCancelBtn').addEventListener('click', function () {
-      overlay.remove();
-    });
+    document
+      .getElementById('folderCancelBtn')
+      .addEventListener('click', function () {
+        overlay.remove();
+      });
 
-    document.getElementById('folderSelectBtn').addEventListener('click', function () {
-      if (currentBrowsePath) {
-        outputPath.value = currentBrowsePath;
-      }
-      overlay.remove();
-    });
+    document
+      .getElementById('folderSelectBtn')
+      .addEventListener('click', function () {
+        if (currentBrowsePath) {
+          outputPath.value = currentBrowsePath;
+        }
+        overlay.remove();
+      });
 
     function loadFolder(folderPath) {
       var url = '/api/browse-folders';
@@ -701,7 +824,9 @@
       listEl.innerHTML = '';
 
       fetch(url)
-        .then(function (res) { return res.json(); })
+        .then(function (res) {
+          return res.json();
+        })
         .then(function (data) {
           if (data.error) {
             pathEl.textContent = 'Error: ' + data.error;
@@ -714,7 +839,10 @@
 
           // Parent directory
           if (data.parentPath) {
-            html += '<div class="folder-item" data-path="' + escapeHtml(data.parentPath) + '">' +
+            html +=
+              '<div class="folder-item" data-path="' +
+              escapeHtml(data.parentPath) +
+              '">' +
               '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
               '..</div>';
           }
@@ -722,21 +850,37 @@
           // Drive letters (Windows)
           if (data.drives) {
             data.drives.forEach(function (d) {
-              html += '<div class="folder-item" data-path="' + escapeHtml(d) + '">' +
+              html +=
+                '<div class="folder-item" data-path="' +
+                escapeHtml(d) +
+                '">' +
                 '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="12" x2="6" y2="12.01"/></svg>' +
-                escapeHtml(d) + '</div>';
+                escapeHtml(d) +
+                '</div>';
             });
           }
 
           // Folders
           data.folders.forEach(function (name) {
-            html += '<div class="folder-item" data-path="' + escapeHtml(data.currentPath + (data.currentPath.endsWith('/') || data.currentPath.endsWith('\\') ? '' : '/') + name) + '">' +
+            html +=
+              '<div class="folder-item" data-path="' +
+              escapeHtml(
+                data.currentPath +
+                  (data.currentPath.endsWith('/') ||
+                  data.currentPath.endsWith('\\')
+                    ? ''
+                    : '/') +
+                  name,
+              ) +
+              '">' +
               '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
-              escapeHtml(name) + '</div>';
+              escapeHtml(name) +
+              '</div>';
           });
 
           if (!data.folders.length && !data.drives) {
-            html += '<div style="padding:12px;color:var(--text-muted);font-size:0.85rem;text-align:center;">No subfolders</div>';
+            html +=
+              '<div style="padding:12px;color:var(--text-muted);font-size:0.85rem;text-align:center;">No subfolders</div>';
           }
 
           listEl.innerHTML = html;
@@ -747,12 +891,14 @@
     }
 
     // Navigate on folder click
-    overlay.querySelector('.folder-modal').addEventListener('click', function (e) {
-      var item = e.target.closest('.folder-item');
-      if (item) {
-        loadFolder(item.getAttribute('data-path'));
-      }
-    });
+    overlay
+      .querySelector('.folder-modal')
+      .addEventListener('click', function (e) {
+        var item = e.target.closest('.folder-item');
+        if (item) {
+          loadFolder(item.getAttribute('data-path'));
+        }
+      });
 
     // Start loading
     loadFolder(startPath || outputPath.value.trim() || '');
@@ -760,13 +906,19 @@
 
   // --- Quit ---
   document.getElementById('quitBtn').addEventListener('click', function () {
-    if (confirm('Are you sure you want to quit VoiceScribe? This will stop the server.')) {
+    if (
+      confirm(
+        'Are you sure you want to quit VoiceScribe? This will stop the server.',
+      )
+    ) {
       fetch('/api/shutdown', { method: 'POST' })
         .then(function () {
-          document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Segoe UI,system-ui,sans-serif;color:#64748b;font-size:1.1rem;">VoiceScribe has been shut down. You can close this tab.</div>';
+          document.body.innerHTML =
+            '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Segoe UI,system-ui,sans-serif;color:#64748b;font-size:1.1rem;">VoiceScribe has been shut down. You can close this tab.</div>';
         })
         .catch(function () {
-          document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Segoe UI,system-ui,sans-serif;color:#64748b;font-size:1.1rem;">VoiceScribe has been shut down. You can close this tab.</div>';
+          document.body.innerHTML =
+            '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Segoe UI,system-ui,sans-serif;color:#64748b;font-size:1.1rem;">VoiceScribe has been shut down. You can close this tab.</div>';
         });
     }
   });
