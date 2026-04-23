@@ -34,15 +34,23 @@ function convertToWav(inputPath, outputPath, jobId, progressCallback) {
     let ffmpegProcess;
     try {
       ffmpegProcess = spawn(config.ffmpegPath, [
-        '-i', inputPath,
-        '-ar', '16000',
-        '-ac', '1',
-        '-c:a', 'pcm_s16le',
+        '-i',
+        inputPath,
+        '-ar',
+        '16000',
+        '-ac',
+        '1',
+        '-c:a',
+        'pcm_s16le',
         '-y',
         outputPath,
       ]);
     } catch (err) {
-      reject(new Error(`Failed to spawn ffmpeg: ${err.message}. Is ffmpeg installed at ${config.ffmpegPath}?`));
+      reject(
+        new Error(
+          `Failed to spawn ffmpeg: ${err.message}. Is ffmpeg installed at ${config.ffmpegPath}?`,
+        ),
+      );
       return;
     }
 
@@ -54,7 +62,9 @@ function convertToWav(inputPath, outputPath, jobId, progressCallback) {
       stderrOutput += text;
 
       if (!totalDuration) {
-        const durationMatch = text.match(/Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/);
+        const durationMatch = text.match(
+          /Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/,
+        );
         if (durationMatch) {
           const hours = parseInt(durationMatch[1]);
           const minutes = parseInt(durationMatch[2]);
@@ -69,18 +79,29 @@ function convertToWav(inputPath, outputPath, jobId, progressCallback) {
         const minutes = parseInt(timeMatch[2]);
         const seconds = parseInt(timeMatch[3]);
         const currentTime = hours * 3600 + minutes * 60 + seconds;
-        const percent = Math.min(100, Math.round((currentTime / totalDuration) * 100));
+        const percent = Math.min(
+          100,
+          Math.round((currentTime / totalDuration) * 100),
+        );
         progressCallback({ stage: 'converting', percent });
       }
     });
 
     ffmpegProcess.on('error', (err) => {
-      reject(new Error(`Failed to start ffmpeg: ${err.message}. Is ffmpeg installed at ${config.ffmpegPath}?`));
+      reject(
+        new Error(
+          `Failed to start ffmpeg: ${err.message}. Is ffmpeg installed at ${config.ffmpegPath}?`,
+        ),
+      );
     });
 
     ffmpegProcess.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`ffmpeg exited with code ${code}: ${stderrOutput.slice(-500)}`));
+        reject(
+          new Error(
+            `ffmpeg exited with code ${code}: ${stderrOutput.slice(-500)}`,
+          ),
+        );
       } else {
         console.log(`[Whisper] WAV conversion complete`);
         progressCallback({ stage: 'converting', percent: 100 });
@@ -94,7 +115,9 @@ async function runWhisper(wavPath, job, progressCallback) {
   console.log(`[Whisper] Sending to whisper-server for job ${job.id}`);
 
   if (!isReady()) {
-    throw new Error('Whisper server is not running. Please restart the application.');
+    throw new Error(
+      'Whisper server is not running. Please restart the application.',
+    );
   }
 
   progressCallback({ stage: 'transcribing', percent: 0 });
@@ -116,7 +139,17 @@ async function runWhisper(wavPath, job, progressCallback) {
   console.log(`[Whisper] Transcription complete for job ${job.id}`);
 
   // Generate output files from verbose_json
-  const outputPrefix = path.join(config.outputDir, job.id);
+  // Use temp directory by default, only persist to config.outputDir if user specified outputPath
+  const outputDir = job.outputPath
+    ? config.outputDir
+    : path.join(config.uploadDir, 'temp');
+  const outputPrefix = path.join(outputDir, job.id);
+
+  // Ensure temp directory exists if not saving to user path
+  if (!job.outputPath && !fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
   const outputFiles = [];
   const segments = result.segments || [];
 
@@ -124,10 +157,18 @@ async function runWhisper(wavPath, job, progressCallback) {
     txt: { ext: '.txt', generate: () => generateTxt(segments) },
     srt: { ext: '.srt', generate: () => generateSrt(segments) },
     vtt: { ext: '.vtt', generate: () => generateVtt(segments) },
-    json: { ext: '.json', fileSuffix: '', generate: () => JSON.stringify(result, null, 2) },
+    json: {
+      ext: '.json',
+      fileSuffix: '',
+      generate: () => JSON.stringify(result, null, 2),
+    },
     lrc: { ext: '.lrc', generate: () => generateLrc(segments) },
     csv: { ext: '.csv', generate: () => generateCsv(segments) },
-    'json-full': { ext: '.json', fileSuffix: '_full', generate: () => JSON.stringify(result, null, 2) },
+    'json-full': {
+      ext: '.json',
+      fileSuffix: '_full',
+      generate: () => JSON.stringify(result, null, 2),
+    },
   };
 
   for (const fmt of job.outputFormats) {
@@ -164,10 +205,15 @@ async function runWhisper(wavPath, job, progressCallback) {
         const destPath = path.join(job.outputPath, destName);
         fs.copyFileSync(o.path, destPath);
         o.savedPath = destPath;
+        console.log(`[Whisper] Saved to user path: ${destPath}`);
       }
     } catch (err) {
       console.error(`[Whisper] Failed to save to output path: ${err.message}`);
     }
+  } else {
+    console.log(
+      `[Whisper] No output path specified, files will be available for download/preview only`,
+    );
   }
 
   if (outputFiles.length === 0) {
@@ -189,25 +235,39 @@ function sendToWhisperServer(wavBuffer, language, task) {
 
     // file field
     parts.push(`--${boundary}${CRLF}`);
-    parts.push(`Content-Disposition: form-data; name="file"; filename="audio.wav"${CRLF}`);
+    parts.push(
+      `Content-Disposition: form-data; name="file"; filename="audio.wav"${CRLF}`,
+    );
     parts.push(`Content-Type: audio/wav${CRLF}${CRLF}`);
     const fileHeader = Buffer.from(parts.join(''));
     const fileFooter = Buffer.from(CRLF);
 
     // text fields
-    const fields = { response_format: 'verbose_json', language, temperature: '0.0' };
+    const fields = {
+      response_format: 'verbose_json',
+      language,
+      temperature: '0.0',
+    };
     if (task === 'translate') {
       fields.translate = 'true';
     }
     const fieldBuffers = [];
     for (const [key, value] of Object.entries(fields)) {
-      fieldBuffers.push(Buffer.from(
-        `--${boundary}${CRLF}Content-Disposition: form-data; name="${key}"${CRLF}${CRLF}${value}${CRLF}`
-      ));
+      fieldBuffers.push(
+        Buffer.from(
+          `--${boundary}${CRLF}Content-Disposition: form-data; name="${key}"${CRLF}${CRLF}${value}${CRLF}`,
+        ),
+      );
     }
 
     const closing = Buffer.from(`--${boundary}--${CRLF}`);
-    const body = Buffer.concat([fileHeader, wavBuffer, fileFooter, ...fieldBuffers, closing]);
+    const body = Buffer.concat([
+      fileHeader,
+      wavBuffer,
+      fileFooter,
+      ...fieldBuffers,
+      closing,
+    ]);
 
     const options = {
       hostname: config.whisperServerHost,
@@ -227,13 +287,21 @@ function sendToWhisperServer(wavBuffer, language, task) {
       res.on('end', () => {
         const responseText = Buffer.concat(chunks).toString('utf-8');
         if (res.statusCode !== 200) {
-          reject(new Error(`Whisper server returned ${res.statusCode}: ${responseText.slice(0, 500)}`));
+          reject(
+            new Error(
+              `Whisper server returned ${res.statusCode}: ${responseText.slice(0, 500)}`,
+            ),
+          );
           return;
         }
         try {
           resolve(JSON.parse(responseText));
         } catch {
-          reject(new Error(`Whisper server returned invalid JSON: ${responseText.slice(0, 200)}`));
+          reject(
+            new Error(
+              `Whisper server returned invalid JSON: ${responseText.slice(0, 200)}`,
+            ),
+          );
         }
       });
     });
@@ -259,11 +327,13 @@ function generateTxt(segments) {
 }
 
 function generateSrt(segments) {
-  return segments.map((s, i) => {
-    const start = formatTimestamp(s.t0 != null ? s.t0 / 1000 : s.start, true);
-    const end = formatTimestamp(s.t1 != null ? s.t1 / 1000 : s.end, true);
-    return `${i + 1}\n${start} --> ${end}\n${s.text.trim()}\n`;
-  }).join('\n');
+  return segments
+    .map((s, i) => {
+      const start = formatTimestamp(s.t0 != null ? s.t0 / 1000 : s.start, true);
+      const end = formatTimestamp(s.t1 != null ? s.t1 / 1000 : s.end, true);
+      return `${i + 1}\n${start} --> ${end}\n${s.text.trim()}\n`;
+    })
+    .join('\n');
 }
 
 function generateVtt(segments) {
@@ -279,22 +349,24 @@ function generateVtt(segments) {
 }
 
 function generateLrc(segments) {
-  return segments.map((s) => {
-    const seconds = s.t0 != null ? s.t0 / 1000 : s.start;
-    const sec = seconds == null || isNaN(seconds) ? 0 : seconds;
-    const m = Math.floor(sec / 60);
-    const secs = sec % 60;
-    const mm = String(m).padStart(2, '0');
-    const ssxx = secs.toFixed(2).padStart(5, '0');
-    return `[${mm}:${ssxx}] ${s.text.trim()}`;
-  }).join('\n');
+  return segments
+    .map((s) => {
+      const seconds = s.t0 != null ? s.t0 / 1000 : s.start;
+      const sec = seconds == null || isNaN(seconds) ? 0 : seconds;
+      const m = Math.floor(sec / 60);
+      const secs = sec % 60;
+      const mm = String(m).padStart(2, '0');
+      const ssxx = secs.toFixed(2).padStart(5, '0');
+      return `[${mm}:${ssxx}] ${s.text.trim()}`;
+    })
+    .join('\n');
 }
 
 function generateCsv(segments) {
   const lines = ['start,end,text'];
   for (const s of segments) {
-    const start = Math.round((s.t0 != null ? s.t0 : (s.start || 0) * 1000));
-    const end = Math.round((s.t1 != null ? s.t1 : (s.end || 0) * 1000));
+    const start = Math.round(s.t0 != null ? s.t0 : (s.start || 0) * 1000);
+    const end = Math.round(s.t1 != null ? s.t1 : (s.end || 0) * 1000);
     const text = '"' + s.text.trim().replace(/"/g, '""') + '"';
     lines.push(`${start},${end},${text}`);
   }
@@ -309,9 +381,12 @@ function formatTimestamp(seconds, srtFormat) {
   const ms = Math.round((seconds % 1) * 1000);
   const sep = srtFormat ? ',' : '.';
   return (
-    String(h).padStart(2, '0') + ':' +
-    String(m).padStart(2, '0') + ':' +
-    String(s).padStart(2, '0') + sep +
+    String(h).padStart(2, '0') +
+    ':' +
+    String(m).padStart(2, '0') +
+    ':' +
+    String(s).padStart(2, '0') +
+    sep +
     String(ms).padStart(3, '0')
   );
 }

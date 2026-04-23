@@ -4,13 +4,21 @@ import { WebSocketServer } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import config from './config.js';
 import transcribeRouter from './routes/transcribe.js';
-import { startServer as startWhisperServer, stopServer as stopWhisperServer } from './services/whisper-server-manager.js';
+import {
+  startServer as startWhisperServer,
+  stopServer as stopWhisperServer,
+} from './services/whisper-server-manager.js';
 
 const app = express();
 const server = http.createServer(app);
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ charset: 'utf-8' }));
+app.use(express.urlencoded({ extended: true, charset: 'utf-8' }));
+app.use((req, res, next) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  next();
+});
 app.use(express.static('public'));
 
 // Routes
@@ -41,7 +49,9 @@ wss.on('connection', (ws) => {
     console.log(`[WS] Client disconnected: ${clientId}`);
 
     if (clients.size === 0) {
-      console.log('[Server] No clients connected. Shutting down in 5 seconds...');
+      console.log(
+        '[Server] No clients connected. Shutting down in 5 seconds...',
+      );
       shutdownTimer = setTimeout(async () => {
         console.log('[Server] Shutting down...');
         await stopWhisperServer();

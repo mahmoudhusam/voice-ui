@@ -19,7 +19,9 @@ export function addJob(job) {
     position,
   });
 
-  console.log(`[Queue] Job ${job.id} queued (${job.originalName}), position: ${position}`);
+  console.log(
+    `[Queue] Job ${job.id} queued (${job.originalName}), position: ${position}`,
+  );
   processNext();
 }
 
@@ -57,7 +59,9 @@ async function processNext() {
     job.duration = job.completedAt - job.startedAt;
     job.outputs = outputs;
 
-    console.log(`[Queue] Job ${job.id} completed (${job.originalName}) in ${job.duration}ms`);
+    console.log(
+      `[Queue] Job ${job.id} completed (${job.originalName}) in ${job.duration}ms`,
+    );
 
     broadcastToClient(job.clientId, {
       type: 'job_completed',
@@ -77,7 +81,10 @@ async function processNext() {
     job.duration = job.completedAt - job.startedAt;
     job.error = err.message;
 
-    console.error(`[Queue] Job ${job.id} failed (${job.originalName}):`, err.message);
+    console.error(
+      `[Queue] Job ${job.id} failed (${job.originalName}):`,
+      err.message,
+    );
 
     broadcastToClient(job.clientId, {
       type: 'job_failed',
@@ -99,14 +106,18 @@ export function cleanupJobs() {
       if (job.filePath) {
         try {
           if (fs.existsSync(job.filePath)) fs.unlinkSync(job.filePath);
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+          /* ignore */
+        }
       }
-      // Delete output files in outputs dir
+      // Delete output files in temp directory
       if (job.outputs) {
         for (const o of job.outputs) {
           try {
             if (o.path && fs.existsSync(o.path)) fs.unlinkSync(o.path);
-          } catch (e) { /* ignore */ }
+          } catch (e) {
+            /* ignore */
+          }
         }
       }
       jobs.delete(id);

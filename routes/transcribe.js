@@ -9,9 +9,29 @@ import { addJob, getJob, cleanupJobs } from '../services/queue.js';
 
 const router = Router();
 
+// Fix corrupted UTF-8 filename (when UTF-8 bytes are read as Latin-1)
+function fixEncodedFilename(filename) {
+  try {
+    // Convert string to buffer as if it were Latin-1, then decode as UTF-8
+    const buffer = Buffer.from(filename, 'latin1');
+    return buffer.toString('utf8');
+  } catch {
+    return filename;
+  }
+}
+
+// Middleware to ensure UTF-8 handling
+router.use((req, res, next) => {
+  if (req.headers['content-type']) {
+    req.headers['content-type'] = req.headers['content-type'].replace(/charset=[^;]+/i, 'charset=UTF-8');
+  }
+  next();
+});
+
 const storage = multer.diskStorage({
   destination: config.uploadDir,
   filename: (req, file, cb) => {
+    // Preserve original filename encoding
     const ext = path.extname(file.originalname);
     cb(null, `${uuidv4()}${ext}`);
   },
@@ -21,59 +41,221 @@ const upload = multer({ storage });
 // Full list of languages supported by whisper.cpp
 const SUPPORTED_LANGUAGES = new Set([
   'auto',
-  'af', 'am', 'ar', 'as', 'az',
-  'ba', 'be', 'bg', 'bn', 'bo', 'br', 'bs',
-  'ca', 'cs', 'cy',
-  'da', 'de',
-  'el', 'en', 'es', 'et', 'eu',
-  'fa', 'fi', 'fo', 'fr',
-  'gl', 'gu',
-  'ha', 'haw', 'he', 'hi', 'hr', 'ht', 'hu', 'hy',
-  'id', 'is', 'it',
-  'ja', 'jw',
-  'ka', 'kk', 'km', 'kn', 'ko',
-  'la', 'lb', 'ln', 'lo', 'lt', 'lv',
-  'mg', 'mi', 'mk', 'ml', 'mn', 'mr', 'ms', 'mt', 'my',
-  'ne', 'nl', 'nn', 'no',
+  'af',
+  'am',
+  'ar',
+  'as',
+  'az',
+  'ba',
+  'be',
+  'bg',
+  'bn',
+  'bo',
+  'br',
+  'bs',
+  'ca',
+  'cs',
+  'cy',
+  'da',
+  'de',
+  'el',
+  'en',
+  'es',
+  'et',
+  'eu',
+  'fa',
+  'fi',
+  'fo',
+  'fr',
+  'gl',
+  'gu',
+  'ha',
+  'haw',
+  'he',
+  'hi',
+  'hr',
+  'ht',
+  'hu',
+  'hy',
+  'id',
+  'is',
+  'it',
+  'ja',
+  'jw',
+  'ka',
+  'kk',
+  'km',
+  'kn',
+  'ko',
+  'la',
+  'lb',
+  'ln',
+  'lo',
+  'lt',
+  'lv',
+  'mg',
+  'mi',
+  'mk',
+  'ml',
+  'mn',
+  'mr',
+  'ms',
+  'mt',
+  'my',
+  'ne',
+  'nl',
+  'nn',
+  'no',
   'oc',
-  'pa', 'pl', 'ps', 'pt',
-  'ro', 'ru',
-  'sa', 'sd', 'si', 'sk', 'sl', 'sn', 'so', 'sq', 'sr', 'su', 'sv', 'sw',
-  'ta', 'te', 'tg', 'th', 'tk', 'tl', 'tr', 'tt',
-  'uk', 'ur', 'uz',
+  'pa',
+  'pl',
+  'ps',
+  'pt',
+  'ro',
+  'ru',
+  'sa',
+  'sd',
+  'si',
+  'sk',
+  'sl',
+  'sn',
+  'so',
+  'sq',
+  'sr',
+  'su',
+  'sv',
+  'sw',
+  'ta',
+  'te',
+  'tg',
+  'th',
+  'tk',
+  'tl',
+  'tr',
+  'tt',
+  'uk',
+  'ur',
+  'uz',
   'vi',
-  'yi', 'yo',
-  'zh', 'zu',
+  'yi',
+  'yo',
+  'zh',
+  'zu',
   // Also accept full language names
-  'afrikaans', 'amharic', 'arabic', 'assamese', 'azerbaijani',
-  'bashkir', 'belarusian', 'bulgarian', 'bengali', 'tibetan', 'breton', 'bosnian',
-  'catalan', 'czech', 'welsh',
-  'danish', 'german',
-  'greek', 'english', 'spanish', 'estonian', 'basque',
-  'persian', 'finnish', 'faroese', 'french',
-  'galician', 'gujarati',
-  'hausa', 'hawaiian', 'hebrew', 'hindi', 'croatian', 'haitian creole', 'hungarian', 'armenian',
-  'indonesian', 'icelandic', 'italian',
-  'japanese', 'javanese',
-  'georgian', 'kazakh', 'khmer', 'kannada', 'korean',
-  'latin', 'luxembourgish', 'lingala', 'lao', 'lithuanian', 'latvian',
-  'malagasy', 'maori', 'macedonian', 'malayalam', 'mongolian', 'marathi', 'malay', 'maltese', 'myanmar',
-  'nepali', 'dutch', 'nynorsk', 'norwegian',
+  'afrikaans',
+  'amharic',
+  'arabic',
+  'assamese',
+  'azerbaijani',
+  'bashkir',
+  'belarusian',
+  'bulgarian',
+  'bengali',
+  'tibetan',
+  'breton',
+  'bosnian',
+  'catalan',
+  'czech',
+  'welsh',
+  'danish',
+  'german',
+  'greek',
+  'english',
+  'spanish',
+  'estonian',
+  'basque',
+  'persian',
+  'finnish',
+  'faroese',
+  'french',
+  'galician',
+  'gujarati',
+  'hausa',
+  'hawaiian',
+  'hebrew',
+  'hindi',
+  'croatian',
+  'haitian creole',
+  'hungarian',
+  'armenian',
+  'indonesian',
+  'icelandic',
+  'italian',
+  'japanese',
+  'javanese',
+  'georgian',
+  'kazakh',
+  'khmer',
+  'kannada',
+  'korean',
+  'latin',
+  'luxembourgish',
+  'lingala',
+  'lao',
+  'lithuanian',
+  'latvian',
+  'malagasy',
+  'maori',
+  'macedonian',
+  'malayalam',
+  'mongolian',
+  'marathi',
+  'malay',
+  'maltese',
+  'myanmar',
+  'nepali',
+  'dutch',
+  'nynorsk',
+  'norwegian',
   'occitan',
-  'punjabi', 'polish', 'pashto', 'portuguese',
-  'romanian', 'russian',
-  'sanskrit', 'sindhi', 'sinhala', 'slovak', 'slovenian', 'shona', 'somali', 'albanian', 'serbian', 'sundanese', 'swedish', 'swahili',
-  'tamil', 'telugu', 'tajik', 'thai', 'turkmen', 'tagalog', 'turkish', 'tatar',
-  'ukrainian', 'urdu', 'uzbek',
+  'punjabi',
+  'polish',
+  'pashto',
+  'portuguese',
+  'romanian',
+  'russian',
+  'sanskrit',
+  'sindhi',
+  'sinhala',
+  'slovak',
+  'slovenian',
+  'shona',
+  'somali',
+  'albanian',
+  'serbian',
+  'sundanese',
+  'swedish',
+  'swahili',
+  'tamil',
+  'telugu',
+  'tajik',
+  'thai',
+  'turkmen',
+  'tagalog',
+  'turkish',
+  'tatar',
+  'ukrainian',
+  'urdu',
+  'uzbek',
   'vietnamese',
-  'yiddish', 'yoruba',
-  'chinese', 'zulu',
+  'yiddish',
+  'yoruba',
+  'chinese',
+  'zulu',
 ]);
 
-const SUPPORTED_FORMATS = new Set(['txt', 'srt', 'vtt', 'json', 'lrc', 'csv', 'json-full']);
+const SUPPORTED_FORMATS = new Set([
+  'txt',
+  'srt',
+  'vtt',
+  'json',
+  'lrc',
+  'csv',
+  'json-full',
+]);
 
 // POST /api/transcribe
-router.post('/transcribe', upload.array('files', 10), (req, res) => {
+router.post('/transcribe', upload.array('files'), (req, res) => {
   try {
     const files = req.files;
     if (!files || files.length === 0) {
@@ -89,11 +271,17 @@ router.post('/transcribe', upload.array('files', 10), (req, res) => {
     }
 
     if (!SUPPORTED_LANGUAGES.has(language.toLowerCase())) {
-      return res.status(400).json({ error: `Unsupported language: ${language}` });
+      return res
+        .status(400)
+        .json({ error: `Unsupported language: ${language}` });
     }
 
     if (task !== 'transcribe' && task !== 'translate') {
-      return res.status(400).json({ error: `Invalid task: ${task}. Must be 'transcribe' or 'translate'` });
+      return res
+        .status(400)
+        .json({
+          error: `Invalid task: ${task}. Must be 'transcribe' or 'translate'`,
+        });
     }
 
     // outputFormats may come as a JSON string or as repeated form fields
@@ -106,12 +294,16 @@ router.post('/transcribe', upload.array('files', 10), (req, res) => {
     }
 
     if (!Array.isArray(outputFormats) || outputFormats.length === 0) {
-      return res.status(400).json({ error: 'outputFormats must be a non-empty array' });
+      return res
+        .status(400)
+        .json({ error: 'outputFormats must be a non-empty array' });
     }
 
     for (const fmt of outputFormats) {
       if (!SUPPORTED_FORMATS.has(fmt)) {
-        return res.status(400).json({ error: `Unsupported output format: ${fmt}` });
+        return res
+          .status(400)
+          .json({ error: `Unsupported output format: ${fmt}` });
       }
     }
 
@@ -120,7 +312,7 @@ router.post('/transcribe', upload.array('files', 10), (req, res) => {
     for (const file of files) {
       const job = {
         id: uuidv4(),
-        originalName: file.originalname,
+        originalName: fixEncodedFilename(file.originalname),
         filePath: file.path,
         language: language.toLowerCase(),
         outputFormats,
@@ -132,7 +324,11 @@ router.post('/transcribe', upload.array('files', 10), (req, res) => {
       };
 
       addJob(job);
-      jobResponses.push({ id: job.id, originalName: job.originalName, status: job.status });
+      jobResponses.push({
+        id: job.id,
+        originalName: job.originalName,
+        status: job.status,
+      });
     }
 
     console.log(`[API] ${files.length} file(s) queued for transcription`);
@@ -151,7 +347,9 @@ router.get('/jobs/:jobId/outputs', (req, res) => {
   }
 
   if (job.status !== 'completed') {
-    return res.status(400).json({ error: `Job is not completed. Current status: ${job.status}` });
+    return res
+      .status(400)
+      .json({ error: `Job is not completed. Current status: ${job.status}` });
   }
 
   const outputs = job.outputs.map((o) => ({
@@ -188,7 +386,11 @@ router.get('/jobs/:jobId/download/:filename', (req, res) => {
   const suffix = output.format === 'json-full' ? '_full' : '';
   const downloadName = `${baseName}_${timestamp}${suffix}.${ext}`;
 
-  res.download(output.path, downloadName);
+  res.set(
+    'Content-Disposition',
+    `attachment; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
+  );
+  res.sendFile(output.path);
 });
 
 // GET /api/jobs/:jobId/preview
@@ -225,7 +427,9 @@ router.get('/jobs/:jobId/preview', (req, res) => {
     }
   }
 
-  res.json({ text: 'No text output available. Please include Text (.txt) in your output formats.' });
+  res.json({
+    text: 'No text output available. Please include Text (.txt) in your output formats.',
+  });
 });
 
 // GET /api/jobs/:jobId/media — serve original file for playback
@@ -252,7 +456,8 @@ router.post('/cleanup', (req, res) => {
 router.post('/shutdown', (req, res) => {
   res.json({ success: true, message: 'Shutting down...' });
   setTimeout(async () => {
-    const { stopServer } = await import('../services/whisper-server-manager.js');
+    const { stopServer } =
+      await import('../services/whisper-server-manager.js');
     await stopServer();
     process.exit(0);
   }, 500);
